@@ -114,6 +114,7 @@ export const APP_TEXT = {
         "equilibrium": { "label": "Equilibrium", "sub": "noise speed", "ll": "tranquil", "lr": "random" },
         "temperature": { "label": "Temperature", "sub": "noise intensity", "ll": "glacial", "lr": "firey" },
         "viscosity": { "label": "Viscosity", "sub": "sluggishness", "ll": "fluid", "lr": "thick" },
+        "phoenixCoupling": { "label": "Phoenix Coupling", "sub": "local momentum entrainment", "ll": "individual", "lr": "collective" },
         "mass": { "label": "Mass", "sub": "inertia", "ll": "light", "lr": "heavy" },
         "tempo": { "label": "Tempo", "sub": "speed", "ll": "pause", "lr": "2x" },
         "colorRange": { "label": "Color Spectrum Range", "sub": "", "ll": "tight", "lr": "wide" },
@@ -217,14 +218,14 @@ document.head.appendChild(pulseStyle);
 
 const PARAM_KEYS = [
     'freeEnergy', 'resolution', 'inversion', 'halfLife', 'scaleDepth',
-    'coherence', 'equilibrium', 'temperature', 'viscosity', 'mass',
+    'coherence', 'equilibrium', 'temperature', 'viscosity', 'phoenixCoupling', 'mass',
     'tempo', 'hue', 'sat', 'lightness', 'opacity', 'trailLen',
     'bgGlow', 'bgBlur', 'offsetX', 'offsetY', 'offsetZ', 'billboardOffset'
 ];
 
 const MODULATABLE_KEYS = [
     'freeEnergy', 'resolution', 'inversion', 'halfLife', 'scaleDepth',
-    'coherence', 'equilibrium', 'temperature', 'viscosity', 'mass',
+    'coherence', 'equilibrium', 'temperature', 'viscosity', 'phoenixCoupling', 'mass',
     'tempo', 'opacity', 'hue', 'sat', 'lightness', 'trailLen', 'bgGlow', 'bgBlur'
 ];
 
@@ -2020,6 +2021,7 @@ export class Engine {
             time: time,
             mass: uniform(window.S.mass),
             viscosity: uniform(window.S.viscosity),
+            phoenixCoupling: uniform(window.S.phoenixCoupling ?? 0.0),
             tempo: uniform(window.S.tempo),
             inversion: uniform(window.S.inversion),
             maxV: uniform(8.0),
@@ -2140,6 +2142,15 @@ export class Engine {
                                         ax.addAssign(mul(div(dx_p, d), forceStr));
                                         ay.addAssign(mul(div(dy_p, d), forceStr));
                                         az.addAssign(mul(div(dz_p, d), forceStr));
+
+                                        // Phoenix coupling: nearby particles gradually share
+                                        // velocity. Unlike global viscosity, this preserves
+                                        // motion collectively instead of merely damping it.
+                                        const nVel = vBuf.element(neighborId).xyz;
+                                        const couplingWeight = mul(this.uniforms.phoenixCoupling, sub(1.0, ratio));
+                                        fx.addAssign(mul(sub(nVel.x, v.x), couplingWeight));
+                                        fy.addAssign(mul(sub(nVel.y, v.y), couplingWeight));
+                                        fz.addAssign(mul(sub(nVel.z, v.z), couplingWeight));
                                     });
                                 });
                             });
@@ -2856,6 +2867,7 @@ export class Engine {
         const U = this.uniforms;
         U.mass.value = v('mass');
         U.viscosity.value = v('viscosity');
+        U.phoenixCoupling.value = v('phoenixCoupling');
         U.tempo.value = v('tempo');
         U.inversion.value = v('inversion');
         U.temperature.value = v('temperature');
@@ -5683,6 +5695,7 @@ export function buildUI(engine) {
     makeSlider(pb, c.equilibrium?.label || 'Equilibrium', c.equilibrium?.sub ||'noise speed', c.equilibrium?.ll ||'tranquil', c.equilibrium?.lr ||'random', 'equilibrium', .001, .2, .001);
     makeSlider(pb, c.temperature?.label || 'Temperature', c.temperature?.sub ||'noise intensity', c.temperature?.ll ||'glacial', c.temperature?.lr ||'firey', 'temperature', 0, 3, .01);
     makeSlider(pb, c.viscosity?.label || 'Viscosity', c.viscosity?.sub ||'sluggishness', c.viscosity?.ll ||'fluid', c.viscosity?.lr ||'thick', 'viscosity', 0, 1, .01);
+    makeSlider(pb, c.phoenixCoupling?.label || 'Phoenix Coupling', c.phoenixCoupling?.sub ||'local momentum entrainment', c.phoenixCoupling?.ll ||'individual', c.phoenixCoupling?.lr ||'collective', 'phoenixCoupling', 0, .25, .005);
     makeSlider(pb, c.mass?.label || 'Mass', c.mass?.sub ||'inertia', c.mass?.ll ||'light', c.mass?.lr ||'heavy', 'mass', 0.1, 5, .05);
 
     const rd = document.createElement('div');
@@ -6294,6 +6307,7 @@ window.S = {
     equilibrium: 0.001,
     temperature: 0.0,
     viscosity: 0.0,
+    phoenixCoupling: 0.04,
     mass: 0.1,
 
     // Optics
@@ -6508,7 +6522,8 @@ const _STATE_ENUMS = {
 // slider's min/max). If you add a new key whose magnitude has real-world
 // cost, add it here.
 const _STATE_CLAMPS = {
-    freeEnergy: [0, 1_000_000]
+    freeEnergy: [0, 1_000_000],
+    phoenixCoupling: [0, 0.25]
 };
 
 function hydrateState(raw) {

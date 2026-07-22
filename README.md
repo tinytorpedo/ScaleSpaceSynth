@@ -7,6 +7,14 @@
 A Free, Open Source WebGPU phase-space visualizer / particle-based morphoscope.<br />
 Part of the [Scale Space](https://reddit.com/r/ScaleSpace) project.
 
+## Phoenix Coupling experimental fork
+
+This fork adds one deliberately small extension to the original simulation:
+**Phoenix Coupling**, a tunable local momentum-entrainment force. Nearby
+particles gradually share velocity in proportion to their proximity, allowing
+motion to persist collectively rather than only within individual particles.
+Set the control to `0` to recover the original force law.
+
 <img src="img/Scale-Space-Synthesist-v1.0-Screenshot.png" alt="Scale Space Synthesis" width="1024px" align="center" />
 
 *Scroll further down for more photos.*
