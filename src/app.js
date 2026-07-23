@@ -107,16 +107,28 @@ export const APP_TEXT = {
     "controls": {
         "freeEnergy": { "label": "Free Energy", "sub": "particle count", "ll": "sparse", "lr": "dense" },
         "resolution": { "label": "Resolution", "sub": "particle size", "ll": "-rez", "lr": "+rez" },
-        "inversion": { "label": "Inversion", "sub": "compression", "ll": "contract", "lr": "expand" },
+        "inversion": { "label": "Compression", "sub": "domain extent", "ll": "contract", "lr": "expand" },
         "halfLife": { "label": "Half-Life", "sub": "particle lifespan", "ll": "mortal", "lr": "immortal" },
         "scaleDepth": { "label": "Scale Depth", "sub": "attraction force", "ll": "micro", "lr": "macro" },
-        "coherence": { "label": "Coherence", "sub": "attraction radius", "ll": "vague", "lr": "binary" },
+        "coherence": { "label": "Coherence", "sub": "signed radius · fraction focus", "ll": "anti-coherent", "lr": "coherent" },
         "equilibrium": { "label": "Equilibrium", "sub": "noise speed", "ll": "tranquil", "lr": "random" },
         "temperature": { "label": "Temperature", "sub": "noise intensity", "ll": "glacial", "lr": "firey" },
         "viscosity": { "label": "Viscosity", "sub": "sluggishness", "ll": "fluid", "lr": "thick" },
-        "phoenixCoupling": { "label": "Phoenix Coupling", "sub": "local momentum entrainment", "ll": "individual", "lr": "collective" },
+        "phaseLens": { "label": "Phase Lens", "sub": "tempo-driven curl focus", "ll": "lag", "lr": "lead" },
+        "momentumCoupling": { "label": "Momentum Coupling", "sub": "local velocity entrainment", "ll": "individual", "lr": "collective" },
+        "neighborFilter": { "label": "Neighbor Filter", "sub": "coherence cell culling", "ll": "off", "lr": "on" },
+        "unifiedDispatch": { "label": "Unified Dispatch", "sub": "single compute submission", "ll": "separate", "lr": "unified" },
+        "pairPathGate": { "label": "Pair Path Gate", "sub": "skip inactive interaction math", "ll": "original", "lr": "gated" },
+        "neighborBudget": { "label": "Neighbor Budget", "sub": "candidate slots per particle", "ll": "all", "lr": "bounded" },
+        "spatialInversion": { "label": "Inversion", "sub": "fraction-space blend", "ll": "distance", "lr": "reciprocal" },
+        "zeroWidth": { "label": "Zero Width", "sub": "finite passage through zero", "ll": "sharp", "lr": "wide" },
+        "homePull": { "label": "Home Pull", "sub": "radial return strength", "ll": "free", "lr": "contained" },
+        "worldBoundary": { "label": "World Boundary", "sub": "distance before rebirth", "ll": "off", "lr": "far" },
+        "presentationScale": { "label": "Presentation Scale", "sub": "render-only spacing", "ll": "compact", "lr": "expanded" },
+        "massFamilies": { "label": "Mass Families", "sub": "discrete inertia bands", "ll": "uniform", "lr": "five" },
+        "massRange": { "label": "Mass Range", "sub": "family spread in octaves", "ll": "same", "lr": "wide" },
         "mass": { "label": "Mass", "sub": "inertia", "ll": "light", "lr": "heavy" },
-        "tempo": { "label": "Tempo", "sub": "speed", "ll": "pause", "lr": "2x" },
+        "tempo": { "label": "Tempo", "sub": "signed speed · fraction focus", "ll": "reverse", "lr": "forward" },
         "colorRange": { "label": "Color Spectrum Range", "sub": "", "ll": "tight", "lr": "wide" },
         "saturation": { "label": "Color Saturation", "sub": "", "ll": "muted", "lr": "vivid" },
         "variance": { "label": "Variance", "sub": "noise gradient", "ll": "uniform", "lr": "spectral" },
@@ -164,7 +176,7 @@ export const APP_TEXT = {
                 ["Equilibrium",   "R / T"],
                 ["Temperature",   "G / F"],
                 ["Coherence",     "V / B"],
-                ["Inversion",     "I / O"],
+                ["Compression",   "I / O"],
                 ["Scale Depth",   "N / M"],
                 ["Half-Life",     "K / L"]
             ]
@@ -218,14 +230,18 @@ document.head.appendChild(pulseStyle);
 
 const PARAM_KEYS = [
     'freeEnergy', 'resolution', 'inversion', 'halfLife', 'scaleDepth',
-    'coherence', 'equilibrium', 'temperature', 'viscosity', 'phoenixCoupling', 'mass',
+    'coherence', 'equilibrium', 'temperature', 'viscosity', 'phaseLens', 'momentumCoupling', 'neighborFilter', 'unifiedDispatch', 'pairPathGate', 'neighborBudget',
+    'spatialInversion', 'zeroWidth', 'homePull', 'worldBoundary', 'presentationScale',
+    'massFamilies', 'massRange', 'mass',
     'tempo', 'hue', 'sat', 'lightness', 'opacity', 'trailLen',
     'bgGlow', 'bgBlur', 'offsetX', 'offsetY', 'offsetZ', 'billboardOffset'
 ];
 
 const MODULATABLE_KEYS = [
     'freeEnergy', 'resolution', 'inversion', 'halfLife', 'scaleDepth',
-    'coherence', 'equilibrium', 'temperature', 'viscosity', 'phoenixCoupling', 'mass',
+    'coherence', 'equilibrium', 'temperature', 'viscosity', 'phaseLens', 'momentumCoupling',
+    'spatialInversion', 'zeroWidth', 'homePull', 'worldBoundary', 'presentationScale',
+    'massRange', 'mass',
     'tempo', 'opacity', 'hue', 'sat', 'lightness', 'trailLen', 'bgGlow', 'bgBlur'
 ];
 
@@ -1718,6 +1734,7 @@ export class Engine {
         this.bgCanvas = bgCanvas;
         this.MAX_PARTICLES = 1000000;
         this.particleCount = this.MAX_PARTICLES;
+        this._phaseClock = 0;
 
         this.setupRenderer();
         this.setupScene();
@@ -1886,6 +1903,8 @@ export class Engine {
             down: false,
             mx: 0,
             my: 0,
+            dragDX: 0,
+            dragDY: 0,
             flyMoveSpeed: 1.0,
             orbitZoomSpeed: 1.0
         };
@@ -1974,11 +1993,16 @@ export class Engine {
     }
 
     resizeParticles(newCount) {
-        const activeCount = Math.round(newCount);
+        const activeCount = Math.max(0, Math.min(this.particleCount, Math.round(newCount)));
         if (this.mesh) this.mesh.count = activeCount;
         if (this.uniforms && this.uniforms.activeParticleCount) {
             this.uniforms.activeParticleCount.value = activeCount;
         }
+        // Keep the million-particle storage allocation, but dispatch only the
+        // active prefix. One guarded thread keeps a zero-particle state valid.
+        const dispatchCount = Math.max(1, activeCount);
+        if (this.computeAssignNode) this.computeAssignNode.setCount(dispatchCount);
+        if (this.computeNode) this.computeNode.setCount(dispatchCount);
         // DO NOT resize ribbon/lattice buffers – keep stable
     }
 
@@ -2021,7 +2045,19 @@ export class Engine {
             time: time,
             mass: uniform(window.S.mass),
             viscosity: uniform(window.S.viscosity),
-            phoenixCoupling: uniform(window.S.phoenixCoupling ?? 0.0),
+            phaseLens: uniform(window.S.phaseLens ?? 0.0),
+            phaseClock: uniform(0.0),
+            momentumCoupling: uniform(window.S.momentumCoupling ?? 0.0),
+            neighborFilter: uniform(window.S.neighborFilter ?? 1.0),
+            pairPathGate: uniform(window.S.pairPathGate ?? 1.0),
+            neighborBudget: uniform(window.S.neighborBudget ?? 0.0),
+            spatialInversion: uniform(window.S.spatialInversion ?? 0.0),
+            zeroWidth: uniform(window.S.zeroWidth ?? 0.1),
+            homePull: uniform(window.S.homePull ?? 1.0),
+            worldBoundary: uniform(window.S.worldBoundary ?? 0.0),
+            presentationScale: uniform(window.S.presentationScale ?? 1.0),
+            massFamilies: uniform(window.S.massFamilies ?? 1.0),
+            massRange: uniform(window.S.massRange ?? 0.0),
             tempo: uniform(window.S.tempo),
             inversion: uniform(window.S.inversion),
             maxV: uniform(8.0),
@@ -2043,10 +2079,23 @@ export class Engine {
             shape: uniform(window.S.shape === 'square' ? 1 : (window.S.shape === 'diamond' ? 2 : 0))
         };
 
+        // Preserve coherence zero as a valid physical state while keeping
+        // every denominator and hash coordinate finite. The safe radius is
+        // computational; coherenceActivity restores exactly zero interaction
+        // when the user-selected coherence itself is zero.
+        const coherenceSq = mul(this.uniforms.coherence, this.uniforms.coherence);
+        const coherenceEpsilon = max(this.uniforms.zeroWidth, 0.001);
+        const coherenceEpsilonSq = mul(coherenceEpsilon, coherenceEpsilon);
+        const safeCoherence = sqrt(add(coherenceSq, coherenceEpsilonSq));
+        const coherenceActivity = div(coherenceSq, add(coherenceSq, coherenceEpsilonSq));
+        const coherenceOrientation = div(this.uniforms.coherence, safeCoherence);
+        const signedCoherenceActivity = mul(coherenceActivity, coherenceOrientation);
+        const gridCellWidth = max(safeCoherence, 1.0);
+
         const getCellIndex = Fn(([p]) => {
-            const cx = int(floor(div(p.x, this.uniforms.coherence)));
-            const cy = int(floor(div(p.y, this.uniforms.coherence)));
-            const cz = int(floor(div(p.z, this.uniforms.coherence)));
+            const cx = int(floor(div(p.x, gridCellWidth)));
+            const cy = int(floor(div(p.y, gridCellWidth)));
+            const cz = int(floor(div(p.z, gridCellWidth)));
             const wx = uint(bitAnd(add(cx, int(10240)), int(63)));
             const wy = uint(bitAnd(add(cy, int(10240)), int(63)));
             const wz = uint(bitAnd(add(cz, int(10240)), int(63)));
@@ -2079,6 +2128,7 @@ export class Engine {
             If(instanceIndex.lessThan(this.uniforms.activeParticleCount), () => {
                 const pBuf = storage(this.posStorage, 'vec4', this.particleCount);
                 const vBuf = storage(this.velStorage, 'vec4', this.particleCount);
+                const identityBuf = storage(this.colStorage, 'vec4', this.particleCount);
                 const countBuf = storage(this.gridCountStorage, 'uint', this.GRID_TOTAL_CELLS);
                 const memberBuf = storage(this.gridMemberStorage, 'uint', this.GRID_TOTAL_CELLS * this.MAX_PER_CELL);
 
@@ -2091,68 +2141,147 @@ export class Engine {
                 const cellIdx = getCellIndex(p);
                 const r = this.uniforms.inversion;
                 const tScale = this.uniforms.tempo;
+                const tempoSpeed = abs(tScale);
+                const inversionAmount = clamp(this.uniforms.spatialInversion, 0.0, 1.0);
+                const originalPairPath = this.uniforms.pairPathGate.lessThan(0.5);
+                const pairForceActive = originalPairPath.or(
+                    this.uniforms.scaleDepth.greaterThan(0.001).or(inversionAmount.greaterThan(0.001))
+                );
+                const momentumActive = originalPairPath.or(abs(this.uniforms.momentumCoupling).greaterThan(0.000001));
+                const momentumScale = mul(signedCoherenceActivity, this.uniforms.momentumCoupling);
+                // Blend the original absolute one-unit exclusion into a
+                // scale-relative exclusion. At full inversion, fractional
+                // coherence retains a small 1% core instead of dividing by
+                // the distance between coincident particles.
+                const relativeDeadZone = mul(safeCoherence, 0.01);
+                const deadZoneRadius = mix(1.0, relativeDeadZone, inversionAmount);
+                const deadZoneSq = mul(deadZoneRadius, deadZoneRadius);
+                const radSq = mul(safeCoherence, safeCoherence);
                 let fx = float(0.0).toVar();
                 let fy = float(0.0).toVar();
                 let fz = float(0.0).toVar();
 
-                const cx = int(floor(div(p.x, this.uniforms.coherence)));
-                const cy = int(floor(div(p.y, this.uniforms.coherence)));
-                const cz = int(floor(div(p.z, this.uniforms.coherence)));
+                const cx = int(floor(div(p.x, gridCellWidth)));
+                const cy = int(floor(div(p.y, gridCellWidth)));
+                const cz = int(floor(div(p.z, gridCellWidth)));
+                const localCellX = sub(p.x, mul(float(cx), gridCellWidth));
+                const localCellY = sub(p.y, mul(float(cy), gridCellWidth));
+                const localCellZ = sub(p.z, mul(float(cz), gridCellWidth));
+                const neighborBudget = uint(max(this.uniforms.neighborBudget, 0.0));
+                const budgetEnabled = this.uniforms.neighborBudget.greaterThan(0.5);
+                const candidatesVisited = uint(0).toVar();
+                const signX = select(bitAnd(uint(instanceIndex), uint(1)).equal(uint(0)), int(1), int(-1));
+                const signY = select(bitAnd(uint(instanceIndex), uint(2)).equal(uint(0)), int(1), int(-1));
+                const signZ = select(bitAnd(uint(instanceIndex), uint(4)).equal(uint(0)), int(1), int(-1));
+
+                const budgetOffset = Fn(([step, sign]) => {
+                    return select(step.equal(int(-1)), int(0),
+                        select(step.equal(int(0)), sign, mul(sign, int(-1))));
+                });
 
                 const ax = float(0).toVar();
                 const ay = float(0).toVar();
                 const az = float(0).toVar();
 
-                Loop({ start: int(-1), end: int(2), type: 'int', condition: '<' }, ({ i: dx }) => {
-                    Loop({ start: int(-1), end: int(2), type: 'int', condition: '<' }, ({ i: dy }) => {
-                        Loop({ start: int(-1), end: int(2), type: 'int', condition: '<' }, ({ i: dz }) => {
+                Loop({ start: int(-1), end: int(2), type: 'int', condition: '<' }, ({ i: dxStep }) => {
+                    const dx = select(budgetEnabled, budgetOffset(dxStep, signX), dxStep);
+                    Loop({ start: int(-1), end: int(2), type: 'int', condition: '<' }, ({ i: dyStep }) => {
+                        const dy = select(budgetEnabled, budgetOffset(dyStep, signY), dyStep);
+                        Loop({ start: int(-1), end: int(2), type: 'int', condition: '<' }, ({ i: dzStep }) => {
+                            const dz = select(budgetEnabled, budgetOffset(dzStep, signZ), dzStep);
                             const nx = add(cx, dx);
                             const ny = add(cy, dy);
                             const nz = add(cz, dz);
 
-                            const wx = uint(bitAnd(add(nx, int(10240)), int(63)));
-                            const wy = uint(bitAnd(add(ny, int(10240)), int(63)));
-                            const wz = uint(bitAnd(add(nz, int(10240)), int(63)));
-                            const neighborCellIdx = add(wx, add(mul(wy, uint(this.GRID_X)), mul(wz, uint(this.GRID_X * this.GRID_Y))));
+                            // ScaleSpace-native broad phase: find the nearest
+                            // point in this cell's AABB to the particle. If
+                            // even that point lies beyond coherence, no member
+                            // of the cell can interact, so avoid its count,
+                            // member, position, and velocity reads entirely.
+                            const cellDx = select(dx.lessThan(int(0)), localCellX,
+                                select(dx.greaterThan(int(0)), sub(gridCellWidth, localCellX), 0.0));
+                            const cellDy = select(dy.lessThan(int(0)), localCellY,
+                                select(dy.greaterThan(int(0)), sub(gridCellWidth, localCellY), 0.0));
+                            const cellDz = select(dz.lessThan(int(0)), localCellZ,
+                                select(dz.greaterThan(int(0)), sub(gridCellWidth, localCellZ), 0.0));
+                            const cellMinDistSq = add(mul(cellDx, cellDx), add(mul(cellDy, cellDy), mul(cellDz, cellDz)));
+                            const cellMayInteract = this.uniforms.neighborFilter.lessThan(0.5).or(cellMinDistSq.lessThan(radSq));
 
-                            const cellCount = min(countBuf.element(neighborCellIdx), uint(this.MAX_PER_CELL));
-
-                            Loop({ start: uint(0), end: cellCount, type: 'uint', condition: '<' }, ({ i: j }) => {
-                                const memberIdx = add(mul(neighborCellIdx, uint(this.MAX_PER_CELL)), j);
-                                const neighborId = memberBuf.element(memberIdx);
-
-                                If(neighborId.notEqual(uint(instanceIndex)), () => {
-                                    const nPos = pBuf.element(neighborId).xyz;
-                                    const dx_p = sub(nPos.x, p.x);
-                                    const dy_p = sub(nPos.y, p.y);
-                                    const dz_p = sub(nPos.z, p.z);
-                                    const dSq = add(mul(dx_p, dx_p), add(mul(dy_p, dy_p), mul(dz_p, dz_p)));
-                                    const radSq = mul(this.uniforms.coherence, this.uniforms.coherence);
-
-                                    If(dSq.lessThan(radSq).and(dSq.greaterThan(1.0)), () => {
-                                        const d = length(vec3(dx_p, dy_p, dz_p));
-                                        const ratio = div(d, this.uniforms.coherence);
-                                        const forceStr = float(0).toVar();
-                                        If(ratio.greaterThan(0.15), () => {
-                                            forceStr.assign( mul(this.uniforms.scaleDepth, mul(25.0, sub(1.0, ratio))) );
-                                        }).Else(() => {
-                                            forceStr.assign( mul(this.uniforms.scaleDepth, mul(-150.0, sub(0.15, ratio))) );
-                                        });
-
-                                        ax.addAssign(mul(div(dx_p, d), forceStr));
-                                        ay.addAssign(mul(div(dy_p, d), forceStr));
-                                        az.addAssign(mul(div(dz_p, d), forceStr));
-
-                                        // Phoenix coupling: nearby particles gradually share
-                                        // velocity. Unlike global viscosity, this preserves
-                                        // motion collectively instead of merely damping it.
-                                        const nVel = vBuf.element(neighborId).xyz;
-                                        const couplingWeight = mul(this.uniforms.phoenixCoupling, sub(1.0, ratio));
-                                        fx.addAssign(mul(sub(nVel.x, v.x), couplingWeight));
-                                        fy.addAssign(mul(sub(nVel.y, v.y), couplingWeight));
-                                        fz.addAssign(mul(sub(nVel.z, v.z), couplingWeight));
+                            If(cellMayInteract, () => {
+                                const wx = uint(bitAnd(add(nx, int(10240)), int(63)));
+                                const wy = uint(bitAnd(add(ny, int(10240)), int(63)));
+                                const wz = uint(bitAnd(add(nz, int(10240)), int(63)));
+                                const neighborCellIdx = add(wx, add(mul(wy, uint(this.GRID_X)), mul(wz, uint(this.GRID_X * this.GRID_Y))));
+                                const cellCount = min(countBuf.element(neighborCellIdx), uint(this.MAX_PER_CELL));
+                                const candidateCount = cellCount.toVar();
+                                If(budgetEnabled, () => {
+                                    candidateCount.assign(uint(0));
+                                    If(candidatesVisited.lessThan(neighborBudget), () => {
+                                        candidateCount.assign(min(cellCount, sub(neighborBudget, candidatesVisited)));
                                     });
                                 });
+
+                                Loop({ start: uint(0), end: candidateCount, type: 'uint', condition: '<' }, ({ i: j }) => {
+                                    const memberIdx = add(mul(neighborCellIdx, uint(this.MAX_PER_CELL)), j);
+                                    const neighborId = memberBuf.element(memberIdx);
+
+                                    If(neighborId.notEqual(uint(instanceIndex)), () => {
+                                        const nPos = pBuf.element(neighborId).xyz;
+                                        const dx_p = sub(nPos.x, p.x);
+                                        const dy_p = sub(nPos.y, p.y);
+                                        const dz_p = sub(nPos.z, p.z);
+                                        const dSq = add(mul(dx_p, dx_p), add(mul(dy_p, dy_p), mul(dz_p, dz_p)));
+
+                                        If(dSq.lessThan(radSq).and(dSq.greaterThan(deadZoneSq)), () => {
+                                        const d = sqrt(dSq);
+                                        const ratio = div(d, safeCoherence);
+                                        If(pairForceActive, () => {
+                                            // Signed distance from the existing 0.15 equilibrium
+                                            // shell. The regularized reciprocal is odd and maps
+                                            // zero to zero, so the attractive/repulsive boundary
+                                            // survives inversion instead of becoming singular.
+                                            const signedRatio = sub(ratio, 0.15);
+                                            const zeroWidth = max(this.uniforms.zeroWidth, 0.001);
+                                            const invertedRatio = div(
+                                                signedRatio,
+                                                add(mul(signedRatio, signedRatio), mul(zeroWidth, zeroWidth))
+                                            );
+                                            const originalForce = float(0).toVar();
+                                            If(ratio.greaterThan(0.15), () => {
+                                                originalForce.assign(mul(this.uniforms.scaleDepth, mul(25.0, sub(1.0, ratio))));
+                                            }).Else(() => {
+                                                originalForce.assign(mul(this.uniforms.scaleDepth, mul(-150.0, sub(0.15, ratio))));
+                                            });
+
+                                            const inversionDepth = max(this.uniforms.scaleDepth, 1.0);
+                                            const invertedForce = float(0).toVar();
+                                            If(invertedRatio.greaterThan(0.0), () => {
+                                                invertedForce.assign(mul(inversionDepth, mul(25.0, invertedRatio)));
+                                            }).Else(() => {
+                                                invertedForce.assign(mul(inversionDepth, mul(150.0, invertedRatio)));
+                                            });
+                                            const forceStr = mul(signedCoherenceActivity, mix(originalForce, invertedForce, inversionAmount));
+
+                                            const invD = div(1.0, d);
+                                            ax.addAssign(mul(mul(dx_p, invD), forceStr));
+                                            ay.addAssign(mul(mul(dy_p, invD), forceStr));
+                                            az.addAssign(mul(mul(dz_p, invD), forceStr));
+                                        });
+
+                                        // Momentum coupling: nearby particles gradually share
+                                        // velocity. Unlike global viscosity, this preserves
+                                        // motion collectively instead of merely damping it.
+                                        If(momentumActive, () => {
+                                            const nVel = vBuf.element(neighborId).xyz;
+                                            const couplingWeight = mul(momentumScale, sub(1.0, ratio));
+                                            fx.addAssign(mul(sub(nVel.x, v.x), couplingWeight));
+                                            fy.addAssign(mul(sub(nVel.y, v.y), couplingWeight));
+                                            fz.addAssign(mul(sub(nVel.z, v.z), couplingWeight));
+                                        });
+                                        });
+                                    });
+                                });
+                                candidatesVisited.addAssign(candidateCount);
                             });
                         });
                     });
@@ -2168,14 +2297,24 @@ export class Engine {
                     mul(p.z, 0.5)
                 );
 
-                const turb = curlNoise(curlPos, mul(eq, 10.0), mul(temp, 2.0));
+                // A minimal global phase layer. A tiny runtime clock follows
+                // signed Tempo and Phase Lens shifts the curl focus around it.
+                // Phase Lens = 0 multiplies by exactly 1 and restores the
+                // original curl field without any particle-phase storage.
+                const lens = clamp(this.uniforms.phaseLens, -1.0, 1.0);
+                const fieldPhase = add(this.uniforms.phaseClock, mul(lens, Math.PI * 2.0));
+                const phaseFocus = add(1.0, mul(mul(abs(lens), 0.12), cos(fieldPhase)));
+                const turb = mul(
+                    curlNoise(curlPos, mul(eq, 10.0), mul(temp, 2.0)),
+                    phaseFocus
+                );
 
                 fx.addAssign(turb.x);
                 fy.addAssign(turb.y);
                 fz.addAssign(turb.z);
 
-                If(this.uniforms.scaleDepth.greaterThan(0.001), () => {
-                    If(this.uniforms.coherence.greaterThan(0.1), () => {
+                If(this.uniforms.scaleDepth.greaterThan(0.001).or(inversionAmount.greaterThan(0.001)), () => {
+                    If(coherenceActivity.greaterThan(0.000001), () => {
                         fx.addAssign(ax);
                         fy.addAssign(ay);
                         fz.addAssign(az);
@@ -2184,7 +2323,10 @@ export class Engine {
 
                 const distFromOrigin = length(p);
                 If(distFromOrigin.greaterThan(5.0), () => {
-                    const pullStrength = min(mul(sub(distFromOrigin, 5.0), 0.05), float(1.5));
+                    const pullStrength = mul(
+                        this.uniforms.homePull,
+                        min(mul(sub(distFromOrigin, 5.0), 0.05), float(1.5))
+                    );
                     const dirToOrigin = normalize(p);
                     fx.subAssign(mul(dirToOrigin.x, pullStrength));
                     fy.subAssign(mul(dirToOrigin.y, pullStrength));
@@ -2193,7 +2335,7 @@ export class Engine {
 
                 const softLimit = mul(maxR, 0.8);
                 If(distFromOrigin.greaterThan(softLimit), () => {
-                    const push = mul(sub(distFromOrigin, softLimit), 0.5);
+                    const push = mul(this.uniforms.homePull, mul(sub(distFromOrigin, softLimit), 0.5));
                     const dirToOrigin = normalize(p);
                     fx.subAssign(mul(dirToOrigin.x, push));
                     fy.subAssign(mul(dirToOrigin.y, push));
@@ -2201,15 +2343,28 @@ export class Engine {
                 });
 
                 const force = vec3(fx, fy, fz);
-                const drag = sub(float(1.0), mul(this.uniforms.viscosity, mul(0.005, tScale)));
-                const newV = add(mul(v, drag), mul(force, mul(this.uniforms.dt, div(8.0, this.uniforms.mass)))).toVar();
+                // Stable discrete mass families. colStorage.w is an existing
+                // unused random identity, so no additional particle buffer or
+                // neighbor-loop read is required. One family or zero range
+                // collapses exactly to the original uniform mass.
+                const requestedFamilies = clamp(this.uniforms.massFamilies, 1.0, 5.0);
+                const familyCount = sub(mul(floor(div(add(requestedFamilies, 1.0), 2.0)), 2.0), 1.0);
+                const familySeed = identityBuf.element(instanceIndex).w;
+                const familyIndex = min(floor(mul(familySeed, familyCount)), sub(familyCount, 1.0));
+                const familyDenominator = max(sub(familyCount, 1.0), 1.0);
+                const familyPositionRaw = sub(mul(div(familyIndex, familyDenominator), 2.0), 1.0);
+                const familyPosition = select(familyCount.greaterThan(1.0), familyPositionRaw, 0.0);
+                const massScale = pow(2.0, mul(familyPosition, this.uniforms.massRange));
+                const particleMass = max(0.05, mul(this.uniforms.mass, massScale));
+                const drag = sub(float(1.0), mul(this.uniforms.viscosity, mul(0.005, tempoSpeed)));
+                const newV = add(mul(v, drag), mul(force, mul(this.uniforms.dt, div(8.0, particleMass)))).toVar();
                 const vMag = length(newV);
                 const clampScale = min(float(1.0), div(this.uniforms.maxV, vMag));
                 newV.assign(mul(newV, clampScale));
                 const newP = add(p, mul(newV, tScale)).toVar();
 
                 const decayNoise = add(float(1.0), mul(fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))).mul(43758.5453)), float(0.5)));
-                const decayRate = max(float(0.0), mul(sub(float(30.0), this.uniforms.halfLife), mul(float(0.05), mul(tScale, mul(this.uniforms.dt, decayNoise)))));
+                const decayRate = max(float(0.0), mul(sub(float(30.0), this.uniforms.halfLife), mul(float(0.05), mul(tempoSpeed, mul(this.uniforms.dt, decayNoise)))));
                 const life = sub(vNode.w, decayRate).toVar();
                 
                 const hashVec = vec3(p.x, p.y, add(p.z, float(instanceIndex)));
@@ -2222,7 +2377,9 @@ export class Engine {
                     cos(randAngle1)
                 ).mul(blastSpeed);
 
-                If(life.lessThan(0.0), () => {
+                const crossedBoundary = this.uniforms.worldBoundary.greaterThan(0.0)
+                    .and(length(newP).greaterThan(this.uniforms.worldBoundary));
+                If(life.lessThan(0.0).or(crossedBoundary), () => {
                     newP.assign(vec3(0.0, 0.0, 0.0));
                     newV.assign(blastV);
                     life.assign(float(1.0));
@@ -2245,8 +2402,9 @@ export class Engine {
         });
 
         this.computeClearNode = computeClearGrid().compute(this.GRID_TOTAL_CELLS);
-        this.computeAssignNode = computeAssignGrid().compute(this.particleCount);
-        this.computeNode = computePhysics().compute(this.particleCount);
+        const initialActiveCount = Math.max(1, Math.min(this.particleCount, Math.round(window.S.freeEnergy)));
+        this.computeAssignNode = computeAssignGrid().compute(initialActiveCount);
+        this.computeNode = computePhysics().compute(initialActiveCount);
     }
 
     makeTex(t) {
@@ -2293,7 +2451,7 @@ export class Engine {
         });
 
         const worldOffset = vec3(this.uniforms.offsetX, this.uniforms.offsetY, this.uniforms.offsetZ);
-        const worldPos = add(posFromBuf.xyz, worldOffset);
+        const worldPos = add(mul(posFromBuf.xyz, this.uniforms.presentationScale), worldOffset);
         const viewPos = modelViewMatrix.mul(vec4(worldPos, 1.0)).xyz;
 
         const colorMode = this.uniforms.colorMode;
@@ -2306,6 +2464,12 @@ export class Engine {
         // the slider feels more responsive across its full travel.
         const colorRange = sqrt(this.uniforms.colorRange);
         const velFromBuf = storage(this.velStorage, 'vec4', this.particleCount).element(instanceIndex);
+        const densityCoherenceSq = mul(this.uniforms.coherence, this.uniforms.coherence);
+        const densityEpsilon = max(this.uniforms.zeroWidth, 0.001);
+        const densityCellWidth = max(
+            sqrt(add(densityCoherenceSq, mul(densityEpsilon, densityEpsilon))),
+            1.0
+        );
 
         const getCellIndex = Fn(([cx, cy, cz]) => {
             const wx = uint(bitAnd(add(cx, int(10000)), int(63)));
@@ -2315,7 +2479,7 @@ export class Engine {
         });
 
         const getSmoothDensity = Fn(([p]) => {
-            const fPos = div(p, this.uniforms.coherence).sub(0.5);
+            const fPos = div(p, densityCellWidth).sub(0.5);
             const base = floor(fPos);
             const f = fract(fPos);
             
@@ -2345,7 +2509,19 @@ export class Engine {
             return mix(mx0, mx1, f.z);
         });
 
-        const density = getSmoothDensity(posFromBuf.xyz);
+        // Density is an optional spectral layer, not part of particle motion.
+        // Keep its exact eight-cell interpolation in Density mode, but avoid
+        // those storage-buffer reads for Mono, Size, and Velocity rendering.
+        // The branch lives inside a TSL function so it becomes shader control
+        // flow rather than an eagerly evaluated select expression.
+        const getOptionalDensity = Fn(([p, mode]) => {
+            const density = float(0.0).toVar();
+            If(mode.equal(3), () => {
+                density.assign(getSmoothDensity(p));
+            });
+            return density;
+        });
+        const density = getOptionalDensity(posFromBuf.xyz, colorMode);
         const speed = length(velFromBuf.xyz);
 
         const pSize = mul(posFromBuf.w, this.uniforms.pointSize, float(0.4));
@@ -2495,10 +2671,11 @@ export class Engine {
                 const m2 = mul(sub(p3, p1), tension);
 
                 const pos = hermitePos(p1, p2, m1, m2, u);
+                const presentedPos = mul(pos, U.presentationScale);
                 const rawTan = hermiteTan(p1, p2, m1, m2, u);
                 const validTan = select(length(rawTan).greaterThan(0.0001), normalize(rawTan), vec3(0,1,0));
 
-                const toCam = normalize(sub(U.camPos, pos));
+                const toCam = normalize(sub(U.camPos, presentedPos));
                 const norm = normalize(cross(validTan, toCam));
                 // Trail half-width: thinner than particles, with a sqrt
                 // remap so growth against resolution is gentle in the
@@ -2508,8 +2685,8 @@ export class Engine {
                 const hw = mul(sqrt(U.pointSize), 0.25);
 
                 const outIdx = mul(tId, uint(2));
-                outPos.element(outIdx).assign(vec4(add(pos, mul(norm, hw)), 1.0));
-                outPos.element(add(outIdx, uint(1))).assign(vec4(sub(pos, mul(norm, hw)), 1.0));
+                outPos.element(outIdx).assign(vec4(add(presentedPos, mul(norm, hw)), 1.0));
+                outPos.element(add(outIdx, uint(1))).assign(vec4(sub(presentedPos, mul(norm, hw)), 1.0));
 
                 const life1 = vBuf.element(i1).w;
                 const life2 = vBuf.element(i2).w;
@@ -2578,8 +2755,9 @@ export class Engine {
                 const i0 = select(i.greaterThan(uint(0)), sub(i, uint(1)), uint(0));
                 const i2 = select(i.lessThan(Nm1), add(i, uint(1)), Nm1);
                 const pos = pBuf.element(i).xyz;
+                const presentedPos = mul(pos, U.presentationScale);
                 const tangent = normalize(sub(pBuf.element(i2).xyz, pBuf.element(i0).xyz));
-                const norm = normalize(cross(tangent, normalize(sub(U.camPos, pos))));
+                const norm = normalize(cross(tangent, normalize(sub(U.camPos, presentedPos))));
                 // Trail half-width: thinner than particles, sqrt remap on
                 // resolution so growth against the resolution slider is
                 // gentle in the upper range. Matches the ribbon material.
@@ -2588,8 +2766,8 @@ export class Engine {
                 // the slider visibly affects the lattice (not just ribbons).
                 const segScale = mul(U.trailLen, 0.1);
                 const aOffset = mul(tangent, mul(hw, segScale));
-                outPos.element(mul(i, uint(2))).assign(vec4(add(add(pos, mul(norm, hw)), aOffset), 1.0));
-                outPos.element(add(mul(i, uint(2)), uint(1))).assign(vec4(sub(add(pos, aOffset), mul(norm, hw)), 1.0));
+                outPos.element(mul(i, uint(2))).assign(vec4(add(add(presentedPos, mul(norm, hw)), aOffset), 1.0));
+                outPos.element(add(mul(i, uint(2)), uint(1))).assign(vec4(sub(add(presentedPos, aOffset), mul(norm, hw)), 1.0));
 
                 const life = vBuf.element(i).w;
                 const dist = length(sub(pBuf.element(i2).xyz, pos));
@@ -2669,13 +2847,45 @@ export class Engine {
     setupControls(canvas) {
         const cam = this.cam;
         const keys = {};
+        let pendingRightDrag = false;
+        let rightDragStartX = 0;
+        let rightDragStartY = 0;
 
         canvas.addEventListener('mousedown', e => { 
             if (e.button === 1) return;
+            if (e.button === 2) {
+                // A short right click belongs to the environment radial. Do
+                // not move the camera unless the pointer crosses the radial's
+                // own 10 px click/drag threshold.
+                pendingRightDrag = true;
+                rightDragStartX = e.clientX;
+                rightDragStartY = e.clientY;
+                cam.down = false;
+                return;
+            }
             cam.down = true; cam.mx = e.clientX; cam.my = e.clientY; 
         });
-        window.addEventListener('mouseup', () => cam.down = false);
+        window.addEventListener('mouseup', () => {
+            cam.down = false;
+            pendingRightDrag = false;
+        });
         window.addEventListener('mousemove', e => {
+            if (pendingRightDrag) {
+                const pendingDx = e.clientX - rightDragStartX;
+                const pendingDy = e.clientY - rightDragStartY;
+                if (Math.sqrt(pendingDx * pendingDx + pendingDy * pendingDy) < 10) return;
+
+                pendingRightDrag = false;
+                cam.down = true;
+                // Begin at the threshold-crossing position so the withheld
+                // click-sized motion is not applied as one camera jump.
+                cam.mx = e.clientX;
+                cam.my = e.clientY;
+                if (window.sysRadial) window.sysRadial.close(true);
+                if (window.envRadial) window.envRadial.close(true);
+                if (window.cfgRadial) window.cfgRadial.close(true);
+                return;
+            }
             if (!cam.down) return;
             const dx = e.clientX - cam.mx;
             const dy = e.clientY - cam.my;
@@ -2688,18 +2898,11 @@ export class Engine {
                 if (window.cfgRadial) window.cfgRadial.close(true);
             }
 
-            if (window.S.moveMode === 'orbit') {
-                const angle = Math.sqrt(dx * dx + dy * dy) * 0.006;
-                if (angle > 0.0001) {
-                    const axis = new THREE.Vector3(dy, dx, 0).normalize();
-                    const qOff = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-                    cam.quat.multiply(qOff).normalize();
-                }
-            } else {
-                cam.yaw -= dx * 0.003;
-                cam.pitch -= dy * 0.003;
-                cam.pitch = Math.max(-Math.PI * 0.49, Math.min(Math.PI * 0.49, cam.pitch));
-            }
+            // Mouse events may arrive several times while one asynchronous
+            // GPU frame is in flight. Consume their combined motion once per
+            // rendered frame so camera and field share the same cadence.
+            cam.dragDX += dx;
+            cam.dragDY += dy;
         });
 
         canvas.addEventListener('wheel', e => {
@@ -2775,6 +2978,9 @@ export class Engine {
         const clearAllInputState = () => {
             for (const k in keys) keys[k] = false;
             cam.down = false;
+            pendingRightDrag = false;
+            cam.dragDX = 0;
+            cam.dragDY = 0;
         };
         window.addEventListener('blur', clearAllInputState);
         document.addEventListener('visibilitychange', () => {
@@ -2795,9 +3001,19 @@ export class Engine {
     _updateCamera() {
         const cam = this.cam;
         const keys = this._keys || {};
+        const mouseDX = cam.dragDX || 0;
+        const mouseDY = cam.dragDY || 0;
+        cam.dragDX = 0;
+        cam.dragDY = 0;
         if (keys['ControlLeft'] || keys['ControlRight'] || keys['MetaLeft'] || keys['MetaRight']) return;
 
         if (window.S.moveMode === 'orbit') {
+            const mouseAngle = Math.sqrt(mouseDX * mouseDX + mouseDY * mouseDY) * 0.006;
+            if (mouseAngle > 0.0001) {
+                const mouseAxis = new THREE.Vector3(mouseDY, mouseDX, 0).normalize();
+                const mouseOffset = new THREE.Quaternion().setFromAxisAngle(mouseAxis, mouseAngle);
+                cam.quat.multiply(mouseOffset).normalize();
+            }
             // Zoom: uncapped on both ends. Previously had Math.max(5, ...)
             // floor and Math.min(5000, ...) ceiling. The ceiling created a
             // hard stop that prevented seeing very large scales; the floor
@@ -2837,6 +3053,9 @@ export class Engine {
             this.camera.quaternion.copy(cam.quat);
         } else {
             // Fly mode (hybrid was removed — never user-exposed).
+            cam.yaw -= mouseDX * 0.003;
+            cam.pitch -= mouseDY * 0.003;
+            cam.pitch = Math.max(-Math.PI * 0.49, Math.min(Math.PI * 0.49, cam.pitch));
             const baseSpeed = Math.max(1, cam.pos.length() * 0.005);
             const speed = baseSpeed * cam.flyMoveSpeed;
             const fwd = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(cam.pitch, cam.yaw, 0, 'YXZ'));
@@ -2867,7 +3086,18 @@ export class Engine {
         const U = this.uniforms;
         U.mass.value = v('mass');
         U.viscosity.value = v('viscosity');
-        U.phoenixCoupling.value = v('phoenixCoupling');
+        U.phaseLens.value = v('phaseLens');
+        U.momentumCoupling.value = v('momentumCoupling');
+        U.neighborFilter.value = v('neighborFilter');
+        U.pairPathGate.value = v('pairPathGate');
+        U.neighborBudget.value = v('neighborBudget');
+        U.spatialInversion.value = v('spatialInversion');
+        U.zeroWidth.value = v('zeroWidth');
+        U.homePull.value = v('homePull');
+        U.worldBoundary.value = v('worldBoundary');
+        U.presentationScale.value = v('presentationScale');
+        U.massFamilies.value = v('massFamilies');
+        U.massRange.value = v('massRange');
         U.tempo.value = v('tempo');
         U.inversion.value = v('inversion');
         U.temperature.value = v('temperature');
@@ -2886,7 +3116,11 @@ export class Engine {
         if (U.colorMode) U.colorMode.value = S.colorMode || 0;
         if (U.colorRange) U.colorRange.value = v('hue');
         if (U.sat) U.sat.value = v('sat') ?? 0.8;
-        if (U.activeParticleCount) U.activeParticleCount.value = Math.round(v('freeEnergy'));
+        const activeParticleCount = Math.max(0, Math.min(this.particleCount, Math.round(v('freeEnergy'))));
+        if (U.activeParticleCount) U.activeParticleCount.value = activeParticleCount;
+        const activeDispatchCount = Math.max(1, activeParticleCount);
+        if (this.computeAssignNode) this.computeAssignNode.setCount(activeDispatchCount);
+        if (this.computeNode) this.computeNode.setCount(activeDispatchCount);
         if (U.shape) U.shape.value = S.shape === 'square' ? 1 : (S.shape === 'diamond' ? 2 : 0);
 
         if (this.bgCanvas && v('bgGlow') > 0) {
@@ -2995,16 +3229,29 @@ export class Engine {
         this.updateNavigationArrow();
         this.updateReferenceGrid();
 
-        if (window.S.tempo > 0.0) {
+        const renderTempo = window.S_effective?.tempo ?? window.S.tempo;
+        if (Math.abs(renderTempo) > 0.000001) {
+            // One eighth of a cycle per simulated second at Tempo = 1. Signed
+            // Tempo reverses this clock; pausing Tempo freezes it.
+            this._phaseClock = (this._phaseClock + Math.PI * 2 * 0.125 * 0.016 * renderTempo) % (Math.PI * 2);
+            this.uniforms.phaseClock.value = this._phaseClock;
             try {
-                await this.renderer.computeAsync(this.computeClearNode);
-                await this.renderer.computeAsync(this.computeAssignNode);
-                await this.renderer.computeAsync(this.computeNode);
+                const unifiedDispatch = (window.S_effective?.unifiedDispatch ?? window.S.unifiedDispatch ?? 1) >= 0.5;
+                if (unifiedDispatch) {
+                    await this.renderer.computeAsync([
+                        this.computeClearNode,
+                        this.computeAssignNode,
+                        this.computeNode
+                    ]);
+                } else {
+                    await this.renderer.computeAsync(this.computeClearNode);
+                    await this.renderer.computeAsync(this.computeAssignNode);
+                    await this.renderer.computeAsync(this.computeNode);
+                }
             } catch (e) {
                 console.error("Compute Error:", e);
             }
         }
-
         const xf = window.S._xfade;
         // _xfade is authoritative when present. Set by tour transitions
         // (multi-key) and fadeVisibilityKey (per-key); cleared on stopTour,
@@ -3115,10 +3362,10 @@ export function initRadialUI() {
       { key: 'mass', label: 'Mass', min: 0.1, max: 5, step: 0.05, sensitivity: 0.02, format: value => value.toFixed(2) }, null,
       { key: 'viscosity', label: 'Viscosity', min: 0, max: 1, step: 0.01, sensitivity: 0.006, format: value => value.toFixed(2) },
       { key: 'temperature', label: 'Temperature', min: 0, max: 3, step: 0.01, sensitivity: 0.015, format: value => value.toFixed(2) },
-      { key: 'coherence', label: 'Coherence', min: 1, max: 200, step: 1, sensitivity: 0.75, format: value => Math.round(value).toString() },
+      { key: 'coherence', label: 'Coherence', min: -200, max: 200, step: 0.01, sensitivity: 0.1, format: value => Math.abs(value) < 1 ? value.toFixed(3) : Math.round(value).toString() },
       { key: 'halfLife', label: 'Half-Life', min: 0, max: 30, step: 0.1, sensitivity: 0.12, format: value => value.toFixed(1) },
-      { key: 'inversion', label: 'Inversion', min: 30, max: 500, step: 1, sensitivity: 1.8, format: value => Math.round(value).toString() },
-      { key: 'tempo', label: 'Tempo', min: 0, max: 2, step: 0.01, sensitivity: 0.012, format: value => value.toFixed(2) }
+      { key: 'inversion', label: 'Compression', min: 30, max: 500, step: 1, sensitivity: 1.8, format: value => Math.round(value).toString() },
+      { key: 'tempo', label: 'Tempo', min: -3, max: 3, step: 0.01, sensitivity: 0.012, format: value => value.toFixed(2) }
     ];
 
     const environmentControls = [
@@ -5083,12 +5330,9 @@ window.initLogo = initLogo;
 // (like negative inversion producing galactic spirals); these keys are
 // excluded because negative values produce only broken states, not
 // interesting ones. They CAN still exceed their max (uncapped on top).
-//   tempo      — negative tempo would run physics backwards. Tempting
-//                in theory but the integrator isn't reversible; produces
-//                degenerate states, not time-reversal.
 //   freeEnergy — sizes a GPU buffer. Negative crashes immediately.
 //   resolution — particle billboard size. Negative breaks rendering.
-const UNBOUND_NON_NEGATIVE_KEYS = new Set(['tempo', 'freeEnergy', 'resolution']);
+const UNBOUND_NON_NEGATIVE_KEYS = new Set(['freeEnergy', 'resolution']);
 
 // Keys that ignore Unbound entirely — always clamped to slider range.
 // Two groups belong here:
@@ -5124,6 +5368,11 @@ function clampForBoundlessMode(key, val, min, max) {
     return val;
 }
 
+function normalizeMassFamilies(value) {
+    const n = Number(value);
+    return n >= 4 ? 5 : n >= 2 ? 3 : 1;
+}
+
 // Reflect Unbound mode as a body class so CSS can reveal the broken-chain
 // indicator on every unboundable slider at once. Called from the
 // Bound/Unbound toggle and once on UI build to pick up persisted state.
@@ -5148,7 +5397,40 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     const _step = Number(step);
     const _raw = Number(window.S[key]);
     const _val = Number.isFinite(_raw) ? _raw : _min;
-    const pct = ((_val - _min) / (_max - _min)) * 100;
+    // Preserve physical Coherence values while concentrating slider travel
+    // around zero. Signed coherence devotes 60% of the track to -1..1 and
+    // splits the remaining 40% between the negative and positive tails.
+    const unsignedFractionFocused = (key === 'coherence' || key === 'tempo') && _min === 0 && _max > 1;
+    const signedFractionFocused = (key === 'coherence' || key === 'tempo') && _min < -1 && _max > 1;
+    const fractionFocused = unsignedFractionFocused || signedFractionFocused;
+    const FRACTION_TRACK = key === 'tempo' ? 0.80 : 0.60;
+    const TAIL_TRACK = (1 - FRACTION_TRACK) * 0.5;
+    const toTrack = (value) => {
+        if (!fractionFocused) return value;
+        if (signedFractionFocused) {
+            if (value < -1) return ((value - _min) / (-1 - _min)) * TAIL_TRACK;
+            if (value <= 1) return TAIL_TRACK + ((value + 1) * 0.5) * FRACTION_TRACK;
+            return TAIL_TRACK + FRACTION_TRACK + ((value - 1) / (_max - 1)) * TAIL_TRACK;
+        }
+        if (value <= 1) return value * FRACTION_TRACK;
+        return FRACTION_TRACK + ((value - 1) / (_max - 1)) * (1 - FRACTION_TRACK);
+    };
+    const fromTrack = (position) => {
+        if (!fractionFocused) return position;
+        if (signedFractionFocused) {
+            if (position < TAIL_TRACK) return _min + (position / TAIL_TRACK) * (-1 - _min);
+            if (position <= TAIL_TRACK + FRACTION_TRACK) {
+                return -1 + ((position - TAIL_TRACK) / FRACTION_TRACK) * 2;
+            }
+            return 1 + ((position - TAIL_TRACK - FRACTION_TRACK) / TAIL_TRACK) * (_max - 1);
+        }
+        if (position <= FRACTION_TRACK) return position / FRACTION_TRACK;
+        return 1 + ((position - FRACTION_TRACK) / (1 - FRACTION_TRACK)) * (_max - 1);
+    };
+    const trackMin = fractionFocused ? 0 : _min;
+    const trackMax = fractionFocused ? 1 : _max;
+    const trackStep = fractionFocused ? 0.0005 : _step;
+    const pct = ((toTrack(_val) - trackMin) / (trackMax - trackMin)) * 100;
     const d = document.createElement('div');
     d.className = 'row';
     d.dataset.paramKey = key;  // used by the modulation indicator (CSS pulse)
@@ -5158,7 +5440,7 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     // Chrome/appearance keys stay clamped even in Unbound, so no flag.
     if (!UNBOUND_ALWAYS_CLAMPED_KEYS.has(key)) d.dataset.unboundable = '1';
     if ((window.S[key + '_mod'] || 0) > 0.001) d.dataset.modulating = 'true';
-    const fmtVal = (v) => v < 1 && v > 0 ? v.toFixed(3) : v < 100 ? Number(v).toFixed(1) : Math.round(v);
+    const fmtVal = (v) => Math.abs(v) < 1 ? v.toFixed(3) : Math.abs(v) < 100 ? Number(v).toFixed(1) : Math.round(v);
 
     d.innerHTML = `
         <div class="label">
@@ -5169,26 +5451,69 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
         <div class="bar">
             <i style="--v:${Math.max(0, Math.min(100, pct))}%"></i>
         </div>
-        <input type="range" min="${_min}" max="${_max}" step="${_step}" value="${_val}">
+        <input type="range" min="${trackMin}" max="${trackMax}" step="${trackStep}" value="${toTrack(_val)}">
     `;
 
     const inp = d.querySelector('input');
     const valSpan = d.querySelector('.val');
+    const applyMassSpectrumGradient = () => {
+        if (key !== 'massRange') return;
+        const rawFamilies = Number(window.S.massFamilies) || 1;
+        const families = rawFamilies >= 5 ? 5 : rawFamilies >= 3 ? 3 : 1;
+        const palette = families === 1
+            ? [[109, 255, 176]]
+            : families === 3
+                ? [[80, 140, 255], [109, 255, 176], [255, 170, 85]]
+                : [[80, 120, 255], [80, 220, 255], [109, 255, 176], [255, 220, 90], [255, 130, 90]];
+        const bandGradient = (alpha) => {
+            const stops = [];
+            palette.forEach((rgb, i) => {
+                const start = (i / palette.length) * 100;
+                const end = ((i + 1) / palette.length) * 100;
+                const color = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+                stops.push(`${color} ${start}%`, `${color} ${end}%`);
+            });
+            return `linear-gradient(90deg, ${stops.join(', ')})`;
+        };
+        const range = Math.max(0, Number(window.S.massRange) || 0);
+        const scales = Array.from({ length: families }, (_, i) => {
+            const t = families === 1 ? 0 : (i / (families - 1)) * 2 - 1;
+            return Math.pow(2, t * range).toFixed(2) + '×';
+        });
+        const bar = d.querySelector('.bar');
+        const fill = bar.querySelector('i');
+        bar.style.background = bandGradient(0.14);
+        fill.style.background = bandGradient(0.95);
+        bar.title = `${families} mass ${families === 1 ? 'family' : 'families'}: ${scales.join('  ')}`;
+    };
+    if (key === 'massRange') window.refreshMassSpectrumGradient = applyMassSpectrumGradient;
+    inp.setAttribute('aria-label', label);
+    inp.setAttribute('aria-valuetext', fmtVal(_val));
     sliderSync[key] = (val) => {
-        inp.value = val;
+        const trackValue = toTrack(val);
+        inp.value = trackValue;
+        inp.setAttribute('aria-valuetext', fmtVal(val));
         // Bar pins at 0/100% — values can exceed the slider range via
         // typed entry or drag-scrub; the visualization just clamps.
-        const rawPct = ((val - min) / (max - min) * 100);
+        const rawPct = ((trackValue - trackMin) / (trackMax - trackMin) * 100);
         d.querySelector('i').style.setProperty('--v', Math.max(0, Math.min(100, rawPct)) + '%');
         // Don't overwrite an in-progress edit.
         if (document.activeElement !== valSpan) {
             valSpan.textContent = fmtVal(val);
         }
+        if (key === 'massRange') applyMassSpectrumGradient();
+        if (key === 'massFamilies' && window.refreshMassSpectrumGradient) {
+            window.refreshMassSpectrumGradient();
+        }
         if (cb) cb(val);
     };
 
+    applyMassSpectrumGradient();
+
     const updateVal = (val, isProgrammatic = false) => {
-        window.S[key] = parseFloat(val);
+        window.S[key] = key === 'massFamilies'
+            ? normalizeMassFamilies(val)
+            : parseFloat(val);
         sliderSync[key](window.S[key]);
         // Live readout toast: shows "Label: value" in the center-anchor
         // toast position so users can see the value as they scrub without
@@ -5204,7 +5529,9 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
         try { localStorage.setItem('ss_state', JSON.stringify(window.S)) } catch (e) { }
     };
 
-    inp.addEventListener('input', e => { if (e.isTrusted) updateVal(e.target.value, false) });
+    inp.addEventListener('input', e => {
+        if (e.isTrusted) updateVal(fromTrack(Number(e.target.value)), false);
+    });
     d.addEventListener('wheel', e => {
         // Wheel-scrub is range-clamped (bounded gesture, no "past edge" signal).
         // Typed entry and drag-scrub allow out-of-range — stronger intent.
@@ -5681,22 +6008,43 @@ export function buildUI(engine) {
 
     // ─── Core Parameters ───────────────────────────────────────────────────
     const c = T.controls || {};
+
+    makeSection(pb, 'Signal', 'time, population, and response');
 	
-    // Tempo lives at the top of Parameters because it's the master control — 0 = pause, 1 = normal, 2 = double speed. Affects everything downstream.
-    makeSlider(pb, c.tempo?.label || 'Tempo', c.tempo?.sub ||'speed', c.tempo?.ll ||'pause', c.tempo?.lr ||'2x', 'tempo', 0, 2, .01);
+    // Tempo leads Signal because it is the master clock.
+    makeSlider(pb, c.tempo?.label || 'Tempo', c.tempo?.sub ||'signed speed · fraction focus', c.tempo?.ll ||'reverse', c.tempo?.lr ||'forward', 'tempo', -3, 3, .01);
     makeSlider(pb, c.freeEnergy?.label || 'Free Energy', c.freeEnergy?.sub ||'particle count', c.freeEnergy?.ll ||'sparse', c.freeEnergy?.lr ||'dense', 'freeEnergy', 500, 1000000, 100, (val) => {
         if (window.engine) window.engine.resizeParticles(Math.round(val));
     });
-    makeSlider(pb, c.resolution?.label || 'Resolution', c.resolution?.sub ||'particle size', c.resolution?.ll ||'-rez', c.resolution?.lr ||'+rez', 'resolution', .1, 20, .1);
-    makeSlider(pb, c.inversion?.label || 'Inversion', c.inversion?.sub ||'compression', c.inversion?.ll ||'contract', c.inversion?.lr ||'expand', 'inversion', 30, 500, 1);
     makeSlider(pb, c.halfLife?.label || 'Half-Life', c.halfLife?.sub ||'particle lifespan', c.halfLife?.ll ||'mortal', c.halfLife?.lr ||'immortal', 'halfLife', 0, 30, .1);
-    makeSlider(pb, c.scaleDepth?.label || 'Scale Depth', c.scaleDepth?.sub ||'attraction force', c.scaleDepth?.ll ||'micro', c.scaleDepth?.lr ||'macro', 'scaleDepth', 0, 5, .01);
-    makeSlider(pb, c.coherence?.label || 'Coherence', c.coherence?.sub ||'attraction radius', c.coherence?.ll ||'vague', c.coherence?.lr ||'binary', 'coherence', 1, 200, 1);
+    makeSlider(pb, c.coherence?.label || 'Coherence', c.coherence?.sub ||'signed radius · fraction focus', c.coherence?.ll ||'anti-coherent', c.coherence?.lr ||'coherent', 'coherence', -200, 200, .01);
     makeSlider(pb, c.equilibrium?.label || 'Equilibrium', c.equilibrium?.sub ||'noise speed', c.equilibrium?.ll ||'tranquil', c.equilibrium?.lr ||'random', 'equilibrium', .001, .2, .001);
     makeSlider(pb, c.temperature?.label || 'Temperature', c.temperature?.sub ||'noise intensity', c.temperature?.ll ||'glacial', c.temperature?.lr ||'firey', 'temperature', 0, 3, .01);
     makeSlider(pb, c.viscosity?.label || 'Viscosity', c.viscosity?.sub ||'sluggishness', c.viscosity?.ll ||'fluid', c.viscosity?.lr ||'thick', 'viscosity', 0, 1, .01);
-    makeSlider(pb, c.phoenixCoupling?.label || 'Phoenix Coupling', c.phoenixCoupling?.sub ||'local momentum entrainment', c.phoenixCoupling?.ll ||'individual', c.phoenixCoupling?.lr ||'collective', 'phoenixCoupling', 0, .25, .005);
+    makeSlider(pb, c.phaseLens?.label || 'Phase Lens', c.phaseLens?.sub ||'tempo-driven curl focus', c.phaseLens?.ll ||'lag', c.phaseLens?.lr ||'lead', 'phaseLens', -1, 1, .001);
+    makeSlider(pb, c.momentumCoupling?.label || 'Momentum Coupling', c.momentumCoupling?.sub ||'local velocity entrainment', c.momentumCoupling?.ll ||'individual', c.momentumCoupling?.lr ||'collective', 'momentumCoupling', 0, .25, .005);
+    makeSlider(pb, c.spatialInversion?.label || 'Inversion', c.spatialInversion?.sub ||'fraction-space blend', c.spatialInversion?.ll ||'distance', c.spatialInversion?.lr ||'reciprocal', 'spatialInversion', 0, 1, .01);
+    makeSlider(pb, c.zeroWidth?.label || 'Zero Width', c.zeroWidth?.sub ||'finite passage through zero', c.zeroWidth?.ll ||'sharp', c.zeroWidth?.lr ||'wide', 'zeroWidth', .01, 1, .01);
+
+    makeSection(pb, 'Field', 'domain, attraction, and containment');
+    makeSlider(pb, c.inversion?.label || 'Compression', c.inversion?.sub ||'domain extent', c.inversion?.ll ||'contract', c.inversion?.lr ||'expand', 'inversion', 30, 500, 1);
+    makeSlider(pb, c.scaleDepth?.label || 'Scale Depth', c.scaleDepth?.sub ||'attraction force', c.scaleDepth?.ll ||'micro', c.scaleDepth?.lr ||'macro', 'scaleDepth', 0, 5, .01);
+    makeSlider(pb, c.homePull?.label || 'Home Pull', c.homePull?.sub ||'radial return strength', c.homePull?.ll ||'free', c.homePull?.lr ||'contained', 'homePull', 0, 1, .01);
+    makeSlider(pb, c.worldBoundary?.label || 'World Boundary', c.worldBoundary?.sub ||'distance before rebirth', c.worldBoundary?.ll ||'off', c.worldBoundary?.lr ||'far', 'worldBoundary', 0, 1000, 1);
+
+    makeSection(pb, 'Mass', 'inertia and particle families');
     makeSlider(pb, c.mass?.label || 'Mass', c.mass?.sub ||'inertia', c.mass?.ll ||'light', c.mass?.lr ||'heavy', 'mass', 0.1, 5, .05);
+    makeSlider(pb, c.massFamilies?.label || 'Mass Families', c.massFamilies?.sub ||'discrete inertia bands', c.massFamilies?.ll ||'uniform', c.massFamilies?.lr ||'five', 'massFamilies', 1, 5, 2);
+    makeSlider(pb, c.massRange?.label || 'Mass Range', c.massRange?.sub ||'family spread in octaves', c.massRange?.ll ||'same', c.massRange?.lr ||'wide', 'massRange', 0, 2, .01);
+
+    const adminSection = makeSection(pb, 'Simulation Admin', 'evaluation and performance');
+    adminSection.classList.add('admin-control');
+    [
+        makeSlider(pb, c.neighborFilter?.label || 'Neighbor Filter', c.neighborFilter?.sub ||'coherence cell culling', c.neighborFilter?.ll ||'off', c.neighborFilter?.lr ||'on', 'neighborFilter', 0, 1, 1),
+        makeSlider(pb, c.unifiedDispatch?.label || 'Unified Dispatch', c.unifiedDispatch?.sub ||'single compute submission', c.unifiedDispatch?.ll ||'separate', c.unifiedDispatch?.lr ||'unified', 'unifiedDispatch', 0, 1, 1),
+        makeSlider(pb, c.pairPathGate?.label || 'Pair Path Gate', c.pairPathGate?.sub ||'skip inactive interaction math', c.pairPathGate?.ll ||'original', c.pairPathGate?.lr ||'gated', 'pairPathGate', 0, 1, 1),
+        makeSlider(pb, c.neighborBudget?.label || 'Neighbor Budget', c.neighborBudget?.sub ||'candidate slots per particle', c.neighborBudget?.ll ||'all', c.neighborBudget?.lr ||'bounded', 'neighborBudget', 0, 256, 16)
+    ].forEach(row => row.classList.add('admin-control'));
 
     const rd = document.createElement('div');
     // Generous vertical breathing room — these are footer actions on a
@@ -5747,28 +6095,24 @@ export function buildUI(engine) {
     Array.from(rd.children).forEach(styleBottomBtn);
 
     // ─── Optics ───────────────────────────────────────────────────────────
-    // Order: System Opacity → Quanta → Trails → Trail Length →
-    // Color Mode → Color Spectrum Range → Color Saturation.
+    // Three compact groups: particle form, connections, and color.
     // Backdrop sliders live in Config → UI (they affect the UI layer, not
     // the simulation). Dependent controls (Trail Length) live-update via
     // _toggleUpdaters; no buildUI rebuilds on toggle.
     const sb = document.getElementById('settingsBody'); sb.innerHTML = '';
 
-    // System Opacity — first, simplest knob. Was named "Particle Opacity"
-    // but it actually controls particles + trails + lattice (everything
-    // the system renders), so "System Opacity" is more honest about scope.
-    makeSlider(sb, c.opacity?.label || 'System Opacity', c.opacity?.sub ||'', c.opacity?.ll ||'ghost', c.opacity?.lr ||'solid', 'opacity', 0, 1, .01);
+    makeSection(sb, 'Form', 'resolution, spacing, and quanta');
+    makeSlider(sb, c.resolution?.label || 'Resolution', c.resolution?.sub ||'particle size', c.resolution?.ll ||'-rez', c.resolution?.lr ||'+rez', 'resolution', .1, 20, .1);
+    makeSlider(sb, c.presentationScale?.label || 'Presentation Scale', c.presentationScale?.sub ||'render-only spacing', c.presentationScale?.ll ||'compact', c.presentationScale?.lr ||'expanded', 'presentationScale', .1, 50, .01);
 
     const quantaT = T.quanta || { label: 'Quanta', items: ['Circle', 'Square', 'Diamond'] };
-    makeSection(sb, 'quanta');
     makeGroupToggles(sb, [
         { label: quantaT.items[0], key: 'shape', matchVal: 'circle',  visibilityKey: 'showParticles' },
         { label: quantaT.items[1], key: 'shape', matchVal: 'square',  visibilityKey: 'showParticles' },
         { label: quantaT.items[2], key: 'shape', matchVal: 'diamond', visibilityKey: 'showParticles' }
     ]);
-
     const trailsT = T.trails || { label: 'Trails', items: ['Strings', 'Lattice'] };
-    makeSection(sb, 'trails');
+    makeSection(sb, 'Connections', 'trails between particles');
     // Trails uses button-row, not tabs: Strings and Lattice are
     // independent toggles. Either, both, or neither can be on.
     makeButtonRow(sb, [
@@ -5802,7 +6146,9 @@ export function buildUI(engine) {
     updateTrailEnabled();
 
     const cmm = T.colorMode || { label: 'Color Mode', items: ['Mono', 'Size', 'Velocity', 'Density'] };
-    makeSection(sb, 'colorMode');
+    makeSection(sb, 'Color', 'opacity and spectral mapping');
+    // System Opacity affects particles, trails, and lattice.
+    makeSlider(sb, c.opacity?.label || 'System Opacity', c.opacity?.sub ||'', c.opacity?.ll ||'ghost', c.opacity?.lr ||'solid', 'opacity', 0, 1, .01);
     makeGroupToggles(sb, [
         { label: cmm.items[0], key: 'colorMode', matchVal: 0 },
         { label: cmm.items[1], key: 'colorMode', matchVal: 1 },
@@ -6307,7 +6653,19 @@ window.S = {
     equilibrium: 0.001,
     temperature: 0.0,
     viscosity: 0.0,
-    phoenixCoupling: 0.04,
+    phaseLens: 0.0,
+    momentumCoupling: 0.0,
+    neighborFilter: 1.0,
+    unifiedDispatch: 1.0,
+    pairPathGate: 1.0,
+    neighborBudget: 0.0,
+    spatialInversion: 0.0,
+    zeroWidth: 0.1,
+    homePull: 1.0,
+    worldBoundary: 0.0,
+    presentationScale: 1.0,
+    massFamilies: 1,
+    massRange: 0.0,
     mass: 0.1,
 
     // Optics
@@ -6466,7 +6824,11 @@ function validateWaypoint(w) {
     // Params — PARAM_KEYS allowlist, finite-number values only.
     const inParams = (w.params && typeof w.params === 'object' && !Array.isArray(w.params)) ? w.params : {};
     PARAM_KEYS.forEach(k => {
-        if (_isFiniteNumber(inParams[k])) out.params[k] = inParams[k];
+        if (_isFiniteNumber(inParams[k])) {
+            out.params[k] = k === 'massFamilies'
+                ? normalizeMassFamilies(inParams[k])
+                : inParams[k];
+        }
     });
 
     // Optics — explicit allowlist + per-key type rules.
@@ -6523,7 +6885,19 @@ const _STATE_ENUMS = {
 // cost, add it here.
 const _STATE_CLAMPS = {
     freeEnergy: [0, 1_000_000],
-    phoenixCoupling: [0, 0.25]
+    phaseLens: [-1, 1],
+    momentumCoupling: [0, 0.25],
+    neighborFilter: [0, 1],
+    unifiedDispatch: [0, 1],
+    pairPathGate: [0, 1],
+    neighborBudget: [0, 256],
+    spatialInversion: [0, 1],
+    zeroWidth: [0.001, 1],
+    homePull: [0, 1],
+    worldBoundary: [0, 1000],
+    presentationScale: [0.01, 100],
+    massFamilies: [1, 5],
+    massRange: [0, 2]
 };
 
 function hydrateState(raw) {
@@ -6541,6 +6915,10 @@ function hydrateState(raw) {
         // branch and accept e.g. 2.7. Special-case integer-and-range.
         if (k === 'colorMode') {
             if (_isFiniteIntInRange(Number(v), 0, 3)) window.S[k] = Number(v);
+            continue;
+        }
+        if (k === 'massFamilies') {
+            if (Number.isFinite(Number(v))) window.S[k] = normalizeMassFamilies(v);
             continue;
         }
 
@@ -6656,8 +7034,10 @@ function buildExportPayload(opts) {
     const PRECISION = {
         opacity: 2, panelOpacity: 2, buttonOpacity: 2, volume: 2,
         sat: 2, lightness: 2, hue: 3,
-        equilibrium: 3, temperature: 2, viscosity: 2,
-        mass: 2, scaleDepth: 2, coherence: 0, halfLife: 1,
+        equilibrium: 3, temperature: 2, viscosity: 2, phaseLens: 3,
+        mass: 2, massFamilies: 0, massRange: 2,
+        scaleDepth: 2, coherence: 3, homePull: 2,
+        worldBoundary: 0, presentationScale: 2, halfLife: 1,
         bgGlow: 2, bgBlur: 1, tempo: 2, trailLen: 0,
         resolution: 2, inversion: 0, freeEnergy: 0,
         offsetX: 0, offsetY: 0, offsetZ: 0, billboardOffset: 0,
@@ -7480,8 +7860,10 @@ function _buildSharePayload(wp, opts) {
     // 0.30000000000000004 in the output.
     const PREC = {
         opacity: 2, hue: 3, sat: 2, lightness: 2,
-        equilibrium: 3, temperature: 2, viscosity: 2, mass: 2,
-        scaleDepth: 2, coherence: 0, halfLife: 1, tempo: 2,
+        equilibrium: 3, temperature: 2, viscosity: 2, phaseLens: 3, mass: 2,
+        massFamilies: 0, massRange: 2,
+        scaleDepth: 2, coherence: 3, homePull: 2,
+        worldBoundary: 0, presentationScale: 2, halfLife: 1, tempo: 2,
         trailLen: 0, bgGlow: 2, bgBlur: 1,
         resolution: 2, inversion: 0, freeEnergy: 0,
         offsetX: 0, offsetY: 0, offsetZ: 0, billboardOffset: 0
@@ -7854,16 +8236,16 @@ function init() {
       // pattern is consistent across all parameter shortcuts.
       'KeyG': { k: 'temperature', d: -0.05, min: 0, max: 3 },
       'KeyF': { k: 'temperature', d: 0.05, min: 0, max: 3 },
-      'KeyV': { k: 'coherence', d: -2, min: 1, max: 200 },
-      'KeyB': { k: 'coherence', d: 2, min: 1, max: 200 },
+      'KeyV': { k: 'coherence', d: -2, min: -200, max: 200 },
+      'KeyB': { k: 'coherence', d: 2, min: -200, max: 200 },
       'KeyI': { k: 'inversion', d: -5, min: 30, max: 500 },
       'KeyO': { k: 'inversion', d: 5, min: 30, max: 500 },
       'KeyN': { k: 'scaleDepth', d: -0.05, min: 0, max: 5 },
       'KeyM': { k: 'scaleDepth', d: 0.05, min: 0, max: 5 },
       'KeyK': { k: 'halfLife', d: -0.5, min: 0, max: 30 },
       'KeyL': { k: 'halfLife', d: 0.5, min: 0, max: 30 },
-      'PageDown': { k: 'tempo', d: -0.05, min: 0, max: 2 },
-      'PageUp': { k: 'tempo', d: 0.05, min: 0, max: 2 },
+      'PageDown': { k: 'tempo', d: -0.05, min: -3, max: 3 },
+      'PageUp': { k: 'tempo', d: 0.05, min: -3, max: 3 },
   };
 
   window.addEventListener('keydown', e => {
@@ -7945,8 +8327,11 @@ function init() {
     }
 
     let _firstFrameDrawn = false;
+    let _renderInFlight = false;
     function animate() {
       requestAnimationFrame(animate);
+      if (_renderInFlight) return;
+      _renderInFlight = true;
       try {
           updateTransition();
       } catch(e) { console.error("Transition Error:", e); }
@@ -7954,9 +8339,15 @@ function init() {
           updateModulation();
       } catch(e) { console.error("Modulation Error:", e); }
       try {
-          updateFpsMonitor();
+          // FPS is updated after the asynchronous GPU frame completes.
       } catch(e) { /* silent — FPS monitor must never break the loop */ }
-      engine.render();
+      engine.render().then(() => {
+          try { updateFpsMonitor(); } catch(e) {}
+      }).catch(e => {
+          console.error("Render Loop Error:", e);
+      }).finally(() => {
+          _renderInFlight = false;
+      });
       // Mark the body engine-ready after the first frame is actually drawn,
       // so the canvas opacity transition matches when the engine starts
       // producing content rather than just when setupUI finishes. Without

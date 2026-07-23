@@ -1408,6 +1408,37 @@ body:not([data-theme="synthesist"]) .row[data-modulating="true"] .bar {
     box-shadow: inset 0 0 6px rgba(95, 224, 192, 0.25);
 }
 
+/* Simulation administration is deliberately plain: these are machinery
+ * controls, not part of the model's signal or appearance vocabulary. */
+#paramsBody .admin-control.section .section-head,
+#paramsBody .admin-control.row .label,
+#paramsBody .admin-control.row .val {
+    color: #a0a0a0 !important;
+    text-shadow: none !important;
+}
+#paramsBody .admin-control.section .section-sub,
+#paramsBody .admin-control.row .subhead {
+    color: #707070 !important;
+}
+#paramsBody .admin-control.row .bar {
+    background: rgba(160, 160, 160, 0.10) !important;
+    box-shadow: none !important;
+}
+#paramsBody .admin-control.row .bar i {
+    background: #777 !important;
+    animation: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+}
+#paramsBody .admin-control.row .val[data-editable="1"]:hover,
+#paramsBody .admin-control.row .val.scrubbing {
+    background: rgba(160, 160, 160, 0.10) !important;
+}
+#paramsBody .admin-control.row .val[contenteditable="true"] {
+    outline-color: rgba(160, 160, 160, 0.45) !important;
+    caret-color: #a0a0a0 !important;
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
  *   CIRCLE BUTTON HOVER (responsiveness fix)
  *   Animate smoothly when toggling between hex and circle (in either direction)
