@@ -366,6 +366,84 @@ body.boundless .row[data-unboundable="1"] .val::before {
     z-index: 10;
 }
 
+.row.has-fine-control {
+    margin-bottom: 5px;
+}
+
+/* Coherence keeps its broad navigator and gains a spring-centered trim that
+ * edits the same physical value within +/-1 at 0.001 resolution. */
+.coherence-fine {
+    display: grid;
+    grid-template-columns: 46px 1fr 44px;
+    align-items: center;
+    column-gap: 7px;
+    margin: 0 0 14px;
+    color: #718a99;
+    font-size: 8px;
+    letter-spacing: 0.05em;
+}
+
+.coherence-fine-label {
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.coherence-fine-track {
+    position: relative;
+    height: 5px;
+    border-radius: 1px;
+    background:
+        linear-gradient(90deg,
+            rgba(80,220,255,0.13) 0%,
+            rgba(217,237,246,0.08) 49.5%,
+            rgba(217,237,246,0.20) 50%,
+            rgba(217,237,246,0.08) 50.5%,
+            rgba(109,255,176,0.13) 100%);
+}
+
+.coherence-fine-track i {
+    position: absolute;
+    left: var(--p, 50%);
+    top: -2px;
+    width: 2px;
+    height: 9px;
+    border-radius: 1px;
+    background: #6dffb0;
+    box-shadow: 0 0 6px rgba(109,255,176,0.65);
+    transform: translateX(-1px);
+    pointer-events: none;
+}
+
+.coherence-fine-track input[type=range] {
+    position: absolute;
+    inset: -5px 0;
+    width: 100%;
+    height: 15px;
+    margin: 0;
+    opacity: 0;
+    cursor: ew-resize;
+    z-index: 2;
+}
+
+.coherence-fine-delta {
+    color: #6dffb0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+body[data-theme="synthesist"] .coherence-fine {
+    color: #b08070;
+}
+
+body[data-theme="synthesist"] .coherence-fine-track i {
+    background: #ffaa55;
+    box-shadow: 0 0 6px rgba(255,170,85,0.60);
+}
+
+body[data-theme="synthesist"] .coherence-fine-delta {
+    color: #ffaa55;
+}
+
 /* Short buttons (.tog and .btn) — used throughout panels for toggles like
  * "Save Screenshot on Capture" and actions like "Reset Params" / "Save" /
  * "Load". Match .dock-btn exactly: same padding, border-radius, font-size,

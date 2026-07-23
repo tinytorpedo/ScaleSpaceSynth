@@ -110,11 +110,21 @@ export const APP_TEXT = {
         "inversion": { "label": "Compression", "sub": "domain extent", "ll": "contract", "lr": "expand" },
         "halfLife": { "label": "Half-Life", "sub": "particle lifespan", "ll": "mortal", "lr": "immortal" },
         "scaleDepth": { "label": "Scale Depth", "sub": "attraction force", "ll": "micro", "lr": "macro" },
+        "exclusion": { "label": "Exclusion", "sub": "softened Coulomb separation", "ll": "packing", "lr": "spacing" },
         "coherence": { "label": "Coherence", "sub": "signed radius · fraction focus", "ll": "anti-coherent", "lr": "coherent" },
         "equilibrium": { "label": "Equilibrium", "sub": "noise speed", "ll": "tranquil", "lr": "random" },
         "temperature": { "label": "Temperature", "sub": "noise intensity", "ll": "glacial", "lr": "firey" },
         "viscosity": { "label": "Viscosity", "sub": "sluggishness", "ll": "fluid", "lr": "thick" },
+        "responseMemory": { "label": "Response Memory", "sub": "retained force history", "ll": "instant", "lr": "persistent" },
+        "speciesCompetition": { "label": "Competition", "sub": "cyclic chase and flee", "ll": "neutral", "lr": "cyclic" },
+        "speciesFamilies": { "label": "Species Families", "sub": "cyclic influence groups", "ll": "three", "lr": "five" },
         "phaseLens": { "label": "Phase Lens", "sub": "tempo-driven curl focus", "ll": "lag", "lr": "lead" },
+        "frequencyFamilies": { "label": "Frequency Families", "sub": "stable particle clocks", "ll": "unison", "lr": "five" },
+        "frequencySpread": { "label": "Frequency Spread", "sub": "family separation in octaves", "ll": "unison", "lr": "four octaves" },
+        "phaseCoupling": { "label": "Phase Coupling", "sub": "local oscillator agreement", "ll": "anti-lock", "lr": "phase-lock" },
+        "phaseForce": { "label": "Phase Force", "sub": "phase control of pair response", "ll": "spatial", "lr": "resonant" },
+        "spinor": { "label": "Spinor", "sub": "two-sheeted 4π phase", "ll": "vector", "lr": "double cover" },
+        "mobiusTwist": { "label": "Möbius Twist", "sub": "non-orientable curl transport", "ll": "oriented", "lr": "inside-out" },
         "momentumCoupling": { "label": "Momentum Coupling", "sub": "local velocity entrainment", "ll": "individual", "lr": "collective" },
         "neighborFilter": { "label": "Neighbor Filter", "sub": "coherence cell culling", "ll": "off", "lr": "on" },
         "unifiedDispatch": { "label": "Unified Dispatch", "sub": "single compute submission", "ll": "separate", "lr": "unified" },
@@ -229,8 +239,8 @@ pulseStyle.textContent = `
 document.head.appendChild(pulseStyle);
 
 const PARAM_KEYS = [
-    'freeEnergy', 'resolution', 'inversion', 'halfLife', 'scaleDepth',
-    'coherence', 'equilibrium', 'temperature', 'viscosity', 'phaseLens', 'momentumCoupling', 'neighborFilter', 'unifiedDispatch', 'pairPathGate', 'neighborBudget',
+    'freeEnergy', 'resolution', 'inversion', 'halfLife', 'scaleDepth', 'exclusion',
+    'coherence', 'equilibrium', 'temperature', 'viscosity', 'responseMemory', 'speciesCompetition', 'speciesFamilies', 'phaseLens', 'frequencyFamilies', 'frequencySpread', 'phaseCoupling', 'phaseForce', 'spinor', 'mobiusTwist', 'momentumCoupling', 'neighborFilter', 'unifiedDispatch', 'pairPathGate', 'neighborBudget',
     'spatialInversion', 'zeroWidth', 'homePull', 'worldBoundary', 'presentationScale',
     'massFamilies', 'massRange', 'mass',
     'tempo', 'hue', 'sat', 'lightness', 'opacity', 'trailLen',
@@ -238,8 +248,8 @@ const PARAM_KEYS = [
 ];
 
 const MODULATABLE_KEYS = [
-    'freeEnergy', 'resolution', 'inversion', 'halfLife', 'scaleDepth',
-    'coherence', 'equilibrium', 'temperature', 'viscosity', 'phaseLens', 'momentumCoupling',
+    'freeEnergy', 'resolution', 'inversion', 'halfLife', 'scaleDepth', 'exclusion',
+    'coherence', 'equilibrium', 'temperature', 'viscosity', 'responseMemory', 'speciesCompetition', 'phaseLens', 'frequencySpread', 'phaseCoupling', 'phaseForce', 'spinor', 'mobiusTwist', 'momentumCoupling',
     'spatialInversion', 'zeroWidth', 'homePull', 'worldBoundary', 'presentationScale',
     'massRange', 'mass',
     'tempo', 'opacity', 'hue', 'sat', 'lightness', 'trailLen', 'bgGlow', 'bgBlur'
@@ -1973,10 +1983,14 @@ export class Engine {
 
             const e = (hue + Math.random() * lightness) % 1.0;
             const c = spec(e);
-            colArray[i * 4 + 0] = c.r * sat + (1 - sat);
-            colArray[i * 4 + 1] = c.g * sat + (1 - sat);
-            colArray[i * 4 + 2] = c.b * sat + (1 - sat);
-            colArray[i * 4 + 3] = Math.random();
+            // xyz is the response-memory channel. Procedural color modes no
+            // longer consume these legacy RGB values, so start history clean.
+            // w is particle phase on the two-turn spinor cover [0, 2).
+            // Ordinary phase projects it back to one turn with fract().
+            colArray[i * 4 + 0] = 0;
+            colArray[i * 4 + 1] = 0;
+            colArray[i * 4 + 2] = 0;
+            colArray[i * 4 + 3] = Math.random() * 2;
         }
 
         this.posStorage = new THREE.StorageBufferAttribute(posArray, 4);
@@ -2014,6 +2028,7 @@ export class Engine {
         if (!this.posStorage || !this.velStorage) return;
         const posArray = this.posStorage.array;
         const velArray = this.velStorage.array;
+        const colArray = this.colStorage?.array;
         const sR = window.S.inversion;
         for (let i = 0; i < this.particleCount; i++) {
             const th = Math.random() * Math.PI * 2;
@@ -2027,6 +2042,12 @@ export class Engine {
             velArray[i * 4 + 1] = (Math.random() - 0.5) * 0.5;
             velArray[i * 4 + 2] = (Math.random() - 0.5) * 0.5;
             velArray[i * 4 + 3] = Math.random();
+            if (colArray) {
+                colArray[i * 4 + 0] = 0;
+                colArray[i * 4 + 1] = 0;
+                colArray[i * 4 + 2] = 0;
+                colArray[i * 4 + 3] = Math.random() * 2;
+            }
         }
         // Mark CPU-side arrays as dirty so the renderer re-uploads them.
         // For WebGPU StorageBufferAttribute, the renderer checks .version
@@ -2034,8 +2055,10 @@ export class Engine {
         // suspenders our trigger so the GPU sees the new data.
         this.posStorage.needsUpdate = true;
         this.velStorage.needsUpdate = true;
+        if (this.colStorage) this.colStorage.needsUpdate = true;
         if (typeof this.posStorage.version === 'number') this.posStorage.version++;
         if (typeof this.velStorage.version === 'number') this.velStorage.version++;
+        if (this.colStorage && typeof this.colStorage.version === 'number') this.colStorage.version++;
     }
 
     setupCompute() {
@@ -2045,7 +2068,16 @@ export class Engine {
             time: time,
             mass: uniform(window.S.mass),
             viscosity: uniform(window.S.viscosity),
+            responseMemory: uniform(window.S.responseMemory ?? 0.0),
+            speciesCompetition: uniform(window.S.speciesCompetition ?? 0.0),
+            speciesFamilies: uniform(window.S.speciesFamilies ?? 3.0),
             phaseLens: uniform(window.S.phaseLens ?? 0.0),
+            frequencyFamilies: uniform(window.S.frequencyFamilies ?? 1.0),
+            frequencySpread: uniform(window.S.frequencySpread ?? 0.0),
+            phaseCoupling: uniform(window.S.phaseCoupling ?? 0.0),
+            phaseForce: uniform(window.S.phaseForce ?? 0.0),
+            spinor: uniform(window.S.spinor ?? 0.0),
+            mobiusTwist: uniform(window.S.mobiusTwist ?? 0.0),
             phaseClock: uniform(0.0),
             momentumCoupling: uniform(window.S.momentumCoupling ?? 0.0),
             neighborFilter: uniform(window.S.neighborFilter ?? 1.0),
@@ -2065,6 +2097,7 @@ export class Engine {
             temperature: uniform(window.S.temperature),
             equilibrium: uniform(window.S.equilibrium),
             scaleDepth: uniform(window.S.scaleDepth),
+            exclusion: uniform(window.S.exclusion ?? 0.0),
             halfLife: uniform(window.S.halfLife ?? 15.0),
             camPos: uniform(new THREE.Vector3(0, 0, 300)),
             offsetX: uniform(window.S.offsetX),
@@ -2134,18 +2167,43 @@ export class Engine {
 
                 const pNode = pBuf.element(instanceIndex);
                 const vNode = vBuf.element(instanceIndex);
+                const phaseNode = identityBuf.element(instanceIndex);
 
                 let p = pNode.xyz;
                 let v = vNode.xyz;
+                const particlePhase = phaseNode.w;
+                // Stable procedural identity replaces the old col.w seed,
+                // freeing that channel for evolving phase without adding a
+                // million-particle buffer.
+                const particleSeed = fract(
+                    mul(
+                        sin(mul(add(float(instanceIndex), 1.0), 12.9898)),
+                        43758.5453
+                    )
+                );
 
                 const cellIdx = getCellIndex(p);
                 const r = this.uniforms.inversion;
                 const tScale = this.uniforms.tempo;
                 const tempoSpeed = abs(tScale);
                 const inversionAmount = clamp(this.uniforms.spatialInversion, 0.0, 1.0);
+                const competitionAmount = clamp(this.uniforms.speciesCompetition, 0.0, 1.0);
+                const competitionActive = competitionAmount.greaterThan(0.000001);
+                const exclusionAmount = clamp(this.uniforms.exclusion, 0.0, 1.0);
+                const exclusionActive = exclusionAmount.greaterThan(0.000001);
+                const phaseCouplingAmount = clamp(this.uniforms.phaseCoupling, -1.0, 1.0);
+                const phaseForceAmount = clamp(this.uniforms.phaseForce, 0.0, 1.0);
+                const spinorAmount = clamp(this.uniforms.spinor, 0.0, 1.0);
+                const phaseCouplingActive = abs(phaseCouplingAmount).greaterThan(0.000001);
+                const phaseForceActive = phaseForceAmount.greaterThan(0.000001);
+                const phaseNeighborActive = phaseCouplingActive.or(phaseForceActive);
+                const particlePhaseActive = phaseNeighborActive.or(spinorAmount.greaterThan(0.000001));
                 const originalPairPath = this.uniforms.pairPathGate.lessThan(0.5);
                 const pairForceActive = originalPairPath.or(
-                    this.uniforms.scaleDepth.greaterThan(0.001).or(inversionAmount.greaterThan(0.001))
+                    this.uniforms.scaleDepth.greaterThan(0.001)
+                        .or(inversionAmount.greaterThan(0.001))
+                        .or(competitionActive)
+                        .or(exclusionActive)
                 );
                 const momentumActive = originalPairPath.or(abs(this.uniforms.momentumCoupling).greaterThan(0.000001));
                 const momentumScale = mul(signedCoherenceActivity, this.uniforms.momentumCoupling);
@@ -2160,6 +2218,13 @@ export class Engine {
                 let fx = float(0.0).toVar();
                 let fy = float(0.0).toVar();
                 let fz = float(0.0).toVar();
+                // Phase work is capped independently of the spatial neighbor
+                // budget. Only the first sixteen admitted local pairs pay for
+                // phase trigonometry, keeping the feature viable at the
+                // million-particle ceiling.
+                const phaseSyncSum = float(0.0).toVar();
+                const phaseWeightSum = float(0.0).toVar();
+                const phaseSamples = uint(0).toVar();
 
                 const cx = int(floor(div(p.x, gridCellWidth)));
                 const cy = int(floor(div(p.y, gridCellWidth)));
@@ -2170,6 +2235,62 @@ export class Engine {
                 const neighborBudget = uint(max(this.uniforms.neighborBudget, 0.0));
                 const budgetEnabled = this.uniforms.neighborBudget.greaterThan(0.5);
                 const candidatesVisited = uint(0).toVar();
+                // Three or five stable species require no storage: particle
+                // identity modulo the selected family count is evenly
+                // interleaved and survives every respawn. With a bounded
+                // neighbor budget, divide candidate slots between species.
+                // Any remainder starts with the observer's own species, so
+                // the extra slot rotates instead of permanently favoring
+                // species zero.
+                const fiveSpecies = this.uniforms.speciesFamilies.greaterThan(4.0);
+                const speciesFamilyCount = select(fiveSpecies, uint(5), uint(3));
+                const selfSpecies = mod(uint(instanceIndex), speciesFamilyCount);
+                const speciesBudgetActive = budgetEnabled.and(competitionActive);
+                const speciesQuotaBase = div(neighborBudget, speciesFamilyCount);
+                const speciesQuotaRemainder = mod(neighborBudget, speciesFamilyCount);
+                const speciesRank0 = mod(sub(speciesFamilyCount, selfSpecies), speciesFamilyCount);
+                const speciesRank1 = mod(sub(add(speciesFamilyCount, uint(1)), selfSpecies), speciesFamilyCount);
+                const speciesRank2 = mod(sub(add(speciesFamilyCount, uint(2)), selfSpecies), speciesFamilyCount);
+                const speciesRank3 = mod(sub(add(speciesFamilyCount, uint(3)), selfSpecies), speciesFamilyCount);
+                const speciesRank4 = mod(sub(add(speciesFamilyCount, uint(4)), selfSpecies), speciesFamilyCount);
+                const speciesQuota0 = select(
+                    speciesRank0.lessThan(speciesQuotaRemainder),
+                    add(speciesQuotaBase, uint(1)),
+                    speciesQuotaBase
+                );
+                const speciesQuota1 = select(
+                    speciesRank1.lessThan(speciesQuotaRemainder),
+                    add(speciesQuotaBase, uint(1)),
+                    speciesQuotaBase
+                );
+                const speciesQuota2 = select(
+                    speciesRank2.lessThan(speciesQuotaRemainder),
+                    add(speciesQuotaBase, uint(1)),
+                    speciesQuotaBase
+                );
+                const speciesQuota3 = select(
+                    fiveSpecies,
+                    select(
+                        speciesRank3.lessThan(speciesQuotaRemainder),
+                        add(speciesQuotaBase, uint(1)),
+                        speciesQuotaBase
+                    ),
+                    uint(0)
+                );
+                const speciesQuota4 = select(
+                    fiveSpecies,
+                    select(
+                        speciesRank4.lessThan(speciesQuotaRemainder),
+                        add(speciesQuotaBase, uint(1)),
+                        speciesQuotaBase
+                    ),
+                    uint(0)
+                );
+                const speciesVisited0 = uint(0).toVar();
+                const speciesVisited1 = uint(0).toVar();
+                const speciesVisited2 = uint(0).toVar();
+                const speciesVisited3 = uint(0).toVar();
+                const speciesVisited4 = uint(0).toVar();
                 const signX = select(bitAnd(uint(instanceIndex), uint(1)).equal(uint(0)), int(1), int(-1));
                 const signY = select(bitAnd(uint(instanceIndex), uint(2)).equal(uint(0)), int(1), int(-1));
                 const signZ = select(bitAnd(uint(instanceIndex), uint(4)).equal(uint(0)), int(1), int(-1));
@@ -2226,15 +2347,138 @@ export class Engine {
                                     const neighborId = memberBuf.element(memberIdx);
 
                                     If(neighborId.notEqual(uint(instanceIndex)), () => {
+                                        const neighborSpecies = mod(neighborId, speciesFamilyCount);
+                                        const candidateAccepted = uint(1).toVar();
+                                        If(speciesBudgetActive, () => {
+                                            candidateAccepted.assign(uint(0));
+                                            If(neighborSpecies.equal(uint(0)), () => {
+                                                If(speciesVisited0.lessThan(speciesQuota0), () => {
+                                                    speciesVisited0.addAssign(uint(1));
+                                                    candidateAccepted.assign(uint(1));
+                                                });
+                                            });
+                                            If(neighborSpecies.equal(uint(1)), () => {
+                                                If(speciesVisited1.lessThan(speciesQuota1), () => {
+                                                    speciesVisited1.addAssign(uint(1));
+                                                    candidateAccepted.assign(uint(1));
+                                                });
+                                            });
+                                            If(neighborSpecies.equal(uint(2)), () => {
+                                                If(speciesVisited2.lessThan(speciesQuota2), () => {
+                                                    speciesVisited2.addAssign(uint(1));
+                                                    candidateAccepted.assign(uint(1));
+                                                });
+                                            });
+                                            If(neighborSpecies.equal(uint(3)), () => {
+                                                If(speciesVisited3.lessThan(speciesQuota3), () => {
+                                                    speciesVisited3.addAssign(uint(1));
+                                                    candidateAccepted.assign(uint(1));
+                                                });
+                                            });
+                                            If(neighborSpecies.equal(uint(4)), () => {
+                                                If(speciesVisited4.lessThan(speciesQuota4), () => {
+                                                    speciesVisited4.addAssign(uint(1));
+                                                    candidateAccepted.assign(uint(1));
+                                                });
+                                            });
+                                        });
+                                        If(candidateAccepted.equal(uint(1)), () => {
                                         const nPos = pBuf.element(neighborId).xyz;
                                         const dx_p = sub(nPos.x, p.x);
                                         const dy_p = sub(nPos.y, p.y);
                                         const dz_p = sub(nPos.z, p.z);
                                         const dSq = add(mul(dx_p, dx_p), add(mul(dy_p, dy_p), mul(dz_p, dz_p)));
 
+                                        // Species-neutral softened Coulomb
+                                        // exclusion. Unlike the original
+                                        // pair law, this is deliberately
+                                        // allowed inside the dead zone so
+                                        // tightly packed particles cannot
+                                        // disappear into an unregulated
+                                        // core. Work in normalized coherence
+                                        // coordinates for scale invariance,
+                                        // soften the singularity at 2%, and
+                                        // taper to zero at the existing 15%
+                                        // equilibrium shell.
+                                        If(exclusionActive.and(dSq.lessThan(radSq)), () => {
+                                            const exclusionQSq = div(dSq, radSq);
+                                            const exclusionQ = sqrt(exclusionQSq);
+                                            const exclusionSoftQSq = add(exclusionQSq, 0.0004);
+                                            const exclusionInvSoftCube = div(
+                                                1.0,
+                                                mul(exclusionSoftQSq, sqrt(exclusionSoftQSq))
+                                            );
+                                            const exclusionTaper = max(
+                                                0.0,
+                                                sub(1.0, div(exclusionQ, 0.15))
+                                            );
+                                            const exclusionGain = mul(
+                                                exclusionAmount,
+                                                mul(0.12, mul(exclusionTaper, exclusionInvSoftCube))
+                                            );
+                                            const invCoherence = div(1.0, safeCoherence);
+                                            ax.subAssign(mul(mul(dx_p, invCoherence), exclusionGain));
+                                            ay.subAssign(mul(mul(dy_p, invCoherence), exclusionGain));
+                                            az.subAssign(mul(mul(dz_p, invCoherence), exclusionGain));
+                                        });
+
                                         If(dSq.lessThan(radSq).and(dSq.greaterThan(deadZoneSq)), () => {
                                         const d = sqrt(dSq);
                                         const ratio = div(d, safeCoherence);
+                                        const phaseForceFactor = float(1.0).toVar();
+                                        If(
+                                            phaseNeighborActive.and(phaseSamples.lessThan(uint(16))),
+                                            () => {
+                                                const neighborPhase = identityBuf.element(neighborId).w;
+                                                const rawPhaseDelta = sub(neighborPhase, particlePhase);
+                                                // Ordinary phase takes the shortest route on a
+                                                // one-turn circle. Spinor phase takes the shortest
+                                                // route on its two-turn cover, then evaluates the
+                                                // half-angle. A one-turn (2π) separation therefore
+                                                // agrees ordinarily but has opposite spinor sign.
+                                                const wrappedOrdinaryTurns = sub(
+                                                    fract(add(rawPhaseDelta, 0.5)),
+                                                    0.5
+                                                );
+                                                const wrappedSpinorTurns = sub(
+                                                    mul(fract(mul(add(rawPhaseDelta, 1.0), 0.5)), 2.0),
+                                                    1.0
+                                                );
+                                                const ordinaryPhaseAngle = mul(
+                                                    wrappedOrdinaryTurns,
+                                                    Math.PI * 2.0
+                                                );
+                                                const spinorPhaseAngle = mul(
+                                                    wrappedSpinorTurns,
+                                                    Math.PI
+                                                );
+                                                const phaseSyncSignal = mix(
+                                                    sin(ordinaryPhaseAngle),
+                                                    sin(spinorPhaseAngle),
+                                                    spinorAmount
+                                                );
+                                                const phaseAgreement = mix(
+                                                    cos(ordinaryPhaseAngle),
+                                                    cos(spinorPhaseAngle),
+                                                    spinorAmount
+                                                );
+                                                const phaseWeight = max(0.0, sub(1.0, ratio));
+
+                                                If(phaseCouplingActive, () => {
+                                                    phaseSyncSum.addAssign(mul(phaseSyncSignal, phaseWeight));
+                                                    phaseWeightSum.addAssign(phaseWeight);
+                                                });
+                                                If(phaseForceActive, () => {
+                                                    phaseForceFactor.assign(
+                                                        add(
+                                                            sub(1.0, phaseForceAmount),
+                                                            mul(phaseForceAmount, phaseAgreement)
+                                                        )
+                                                    );
+                                                });
+                                                phaseSamples.addAssign(uint(1));
+                                            }
+                                        );
                                         If(pairForceActive, () => {
                                             // Signed distance from the existing 0.15 equilibrium
                                             // shell. The regularized reciprocal is odd and maps
@@ -2260,7 +2504,49 @@ export class Engine {
                                             }).Else(() => {
                                                 invertedForce.assign(mul(inversionDepth, mul(150.0, invertedRatio)));
                                             });
-                                            const forceStr = mul(signedCoherenceActivity, mix(originalForce, invertedForce, inversionAmount));
+                                            const scaleSpaceForce = mul(
+                                                signedCoherenceActivity,
+                                                mix(originalForce, invertedForce, inversionAmount)
+                                            );
+                                            // Rock-paper-scissors influence:
+                                            // the next species is pursued
+                                            // and the previous is fled in
+                                            // three-way mode. Five-way mode
+                                            // pursues the next two and flees
+                                            // the previous two,
+                                            // and same-species pairs retain
+                                            // only the existing Scale Space
+                                            // law. At full strength this is
+                                            // 5% of the ordinary attraction
+                                            // coefficient, deliberately
+                                            // gentle but persistent through
+                                            // Response Memory.
+                                            const speciesCycle = mod(
+                                                sub(add(neighborSpecies, speciesFamilyCount), selfSpecies),
+                                                speciesFamilyCount
+                                            );
+                                            const speciesPursued = speciesCycle.equal(uint(1)).or(
+                                                fiveSpecies.and(speciesCycle.equal(uint(2)))
+                                            );
+                                            const speciesFled = speciesCycle.equal(sub(speciesFamilyCount, uint(1))).or(
+                                                fiveSpecies.and(speciesCycle.equal(uint(3)))
+                                            );
+                                            const speciesSign = select(
+                                                speciesPursued,
+                                                float(1.0),
+                                                select(speciesFled, float(-1.0), float(0.0))
+                                            );
+                                            const speciesForce = mul(
+                                                coherenceActivity,
+                                                mul(
+                                                    competitionAmount,
+                                                    mul(1.25, mul(sub(1.0, ratio), speciesSign))
+                                                )
+                                            );
+                                            const forceStr = add(
+                                                mul(scaleSpaceForce, phaseForceFactor),
+                                                speciesForce
+                                            );
 
                                             const invD = div(1.0, d);
                                             ax.addAssign(mul(mul(dx_p, invD), forceStr));
@@ -2277,6 +2563,7 @@ export class Engine {
                                             fx.addAssign(mul(sub(nVel.x, v.x), couplingWeight));
                                             fy.addAssign(mul(sub(nVel.y, v.y), couplingWeight));
                                             fz.addAssign(mul(sub(nVel.z, v.z), couplingWeight));
+                                        });
                                         });
                                         });
                                     });
@@ -2297,23 +2584,102 @@ export class Engine {
                     mul(p.z, 0.5)
                 );
 
-                // A minimal global phase layer. A tiny runtime clock follows
-                // signed Tempo and Phase Lens shifts the curl focus around it.
-                // Phase Lens = 0 multiplies by exactly 1 and restores the
-                // original curl field without any particle-phase storage.
+                // A minimal procedural phase layer. Tempo remains the shared
+                // clock, while stable particle identities can split it into
+                // one, three, or five frequency families. Spread is measured
+                // in octaves: the four-octave cap lets the outer families run
+                // from 1/16x to 16x. One family or zero spread yields a ratio
+                // of exactly 1, preserving the original global Phase Lens.
+                // Phase Lens = 0 still multiplies by exactly 1, fully
+                // ablating this layer.
                 const lens = clamp(this.uniforms.phaseLens, -1.0, 1.0);
-                const fieldPhase = add(this.uniforms.phaseClock, mul(lens, Math.PI * 2.0));
-                const phaseFocus = add(1.0, mul(mul(abs(lens), 0.12), cos(fieldPhase)));
+                const requestedFrequencyFamilies = clamp(this.uniforms.frequencyFamilies, 1.0, 5.0);
+                const frequencyFamilyCount = sub(
+                    mul(floor(div(add(requestedFrequencyFamilies, 1.0), 2.0)), 2.0),
+                    1.0
+                );
+                const frequencySeed = particleSeed;
+                const frequencyFamilyIndex = min(
+                    floor(mul(frequencySeed, frequencyFamilyCount)),
+                    sub(frequencyFamilyCount, 1.0)
+                );
+                const frequencyFamilyDenominator = max(sub(frequencyFamilyCount, 1.0), 1.0);
+                const frequencyPositionRaw = sub(
+                    mul(div(frequencyFamilyIndex, frequencyFamilyDenominator), 2.0),
+                    1.0
+                );
+                const frequencyPosition = select(
+                    frequencyFamilyCount.greaterThan(1.0),
+                    frequencyPositionRaw,
+                    0.0
+                );
+                const frequencyRatio = pow(
+                    2.0,
+                    mul(frequencyPosition, clamp(this.uniforms.frequencySpread, 0.0, 4.0))
+                );
+                const proceduralFieldPhase = add(
+                    mul(this.uniforms.phaseClock, frequencyRatio),
+                    mul(lens, Math.PI * 2.0)
+                );
+                const ordinaryParticleFieldPhase = add(
+                    mul(fract(particlePhase), Math.PI * 2.0),
+                    mul(lens, Math.PI * 2.0)
+                );
+                const spinorParticleFieldPhase = add(
+                    mul(particlePhase, Math.PI),
+                    mul(lens, Math.PI)
+                );
+                const particlePhaseSignal = mix(
+                    cos(ordinaryParticleFieldPhase),
+                    cos(spinorParticleFieldPhase),
+                    spinorAmount
+                );
+                const fieldPhaseSignal = select(
+                    particlePhaseActive,
+                    particlePhaseSignal,
+                    cos(proceduralFieldPhase)
+                );
+                const phaseFocus = add(1.0, mul(mul(abs(lens), 0.12), fieldPhaseSignal));
                 const turb = mul(
                     curlNoise(curlPos, mul(eq, 10.0), mul(temp, 2.0)),
                     phaseFocus
                 );
+                const turbResponse = turb.toVar();
+                const mobiusAmount = clamp(this.uniforms.mobiusTwist, 0.0, 1.0);
+                If(mobiusAmount.greaterThan(0.000001), () => {
+                    // Rodrigues transport around the particle's direction of
+                    // travel. The half-angle uses the two-turn phase cover:
+                    // after one turn the transverse curl orientation flips;
+                    // after two turns it returns. The longitudinal component
+                    // is preserved, so this twists the tail's cross-section
+                    // without adding force magnitude or altering pair laws.
+                    const speed = length(v);
+                    const travelAxis = select(
+                        speed.greaterThan(0.0001),
+                        div(v, max(speed, 0.0001)),
+                        vec3(0.0, 0.0, 1.0)
+                    );
+                    const mobiusAngle = mul(add(particlePhase, lens), Math.PI);
+                    const mobiusCos = cos(mobiusAngle);
+                    const mobiusSin = sin(mobiusAngle);
+                    const rotatedTurb = add(
+                        add(
+                            mul(turb, mobiusCos),
+                            mul(cross(travelAxis, turb), mobiusSin)
+                        ),
+                        mul(
+                            travelAxis,
+                            mul(dot(travelAxis, turb), sub(1.0, mobiusCos))
+                        )
+                    );
+                    turbResponse.assign(mix(turb, rotatedTurb, mobiusAmount));
+                });
 
-                fx.addAssign(turb.x);
-                fy.addAssign(turb.y);
-                fz.addAssign(turb.z);
+                fx.addAssign(turbResponse.x);
+                fy.addAssign(turbResponse.y);
+                fz.addAssign(turbResponse.z);
 
-                If(this.uniforms.scaleDepth.greaterThan(0.001).or(inversionAmount.greaterThan(0.001)), () => {
+                If(pairForceActive, () => {
                     If(coherenceActivity.greaterThan(0.000001), () => {
                         fx.addAssign(ax);
                         fy.addAssign(ay);
@@ -2342,14 +2708,66 @@ export class Engine {
                     fz.subAssign(mul(dirToOrigin.z, push));
                 });
 
-                const force = vec3(fx, fy, fz);
-                // Stable discrete mass families. colStorage.w is an existing
-                // unused random identity, so no additional particle buffer or
-                // neighbor-loop read is required. One family or zero range
+                // Natural family frequency advances the stored phase in
+                // turns. Positive coupling follows the local Kuramoto
+                // direction; negative coupling anti-locks. Tempo controls
+                // passage of time, while its sign reverses only the natural
+                // oscillator direction.
+                const naturalPhaseStep = mul(
+                    0.125,
+                    mul(this.uniforms.dt, mul(tScale, frequencyRatio))
+                );
+                const phaseSyncMean = div(
+                    phaseSyncSum,
+                    max(phaseWeightSum, 0.000001)
+                );
+                const couplingPhaseStep = mul(
+                    phaseCouplingAmount,
+                    mul(
+                        phaseSyncMean,
+                        mul(this.uniforms.dt, mul(tempoSpeed, 0.5))
+                    )
+                );
+                const nextParticlePhase = mul(
+                    fract(
+                        mul(
+                            add(particlePhase, add(naturalPhaseStep, couplingPhaseStep)),
+                            0.5
+                        )
+                    ),
+                    2.0
+                );
+
+                // The original color buffer is no longer used by the
+                // procedural spectral material. Reuse its xyz channels as a
+                // per-particle response history while w carries evolving
+                // phase. This adds memory and phase without allocating
+                // another million-particle buffer.
+                //
+                // An exponential moving average remembers the direction of
+                // the complete local response. At zero, the raw force passes
+                // through exactly and the stored history is cleared, making
+                // the feature cleanly ablatable. Near one, short repulsive
+                // contacts continue to steer a particle after it leaves the
+                // interaction shell instead of disappearing immediately.
+                const identityNode = identityBuf.element(instanceIndex);
+                const rawForce = vec3(fx, fy, fz);
+                const force = rawForce.toVar();
+                const memoryAmount = clamp(this.uniforms.responseMemory, 0.0, 0.9999);
+                If(memoryAmount.greaterThan(0.000001), () => {
+                    const rememberedForce = mix(rawForce, identityNode.xyz, memoryAmount);
+                    force.assign(rememberedForce);
+                    identityNode.assign(vec4(rememberedForce, nextParticlePhase));
+                }).Else(() => {
+                    identityNode.assign(vec4(0.0, 0.0, 0.0, nextParticlePhase));
+                });
+                // Stable discrete mass families use the same deterministic
+                // index hash as frequency families. colStorage.w is now free
+                // to evolve as phase. One family or zero range still
                 // collapses exactly to the original uniform mass.
                 const requestedFamilies = clamp(this.uniforms.massFamilies, 1.0, 5.0);
                 const familyCount = sub(mul(floor(div(add(requestedFamilies, 1.0), 2.0)), 2.0), 1.0);
-                const familySeed = identityBuf.element(instanceIndex).w;
+                const familySeed = particleSeed;
                 const familyIndex = min(floor(mul(familySeed, familyCount)), sub(familyCount, 1.0));
                 const familyDenominator = max(sub(familyCount, 1.0), 1.0);
                 const familyPositionRaw = sub(mul(div(familyIndex, familyDenominator), 2.0), 1.0);
@@ -2383,6 +2801,9 @@ export class Engine {
                     newP.assign(vec3(0.0, 0.0, 0.0));
                     newV.assign(blastV);
                     life.assign(float(1.0));
+                    // Response memory clears on rebirth, while phase remains
+                    // continuous across the particle lifecycle.
+                    identityNode.assign(vec4(0.0, 0.0, 0.0, identityNode.w));
                 });
 
                 vNode.assign(vec4(newV, life));
@@ -3086,7 +3507,16 @@ export class Engine {
         const U = this.uniforms;
         U.mass.value = v('mass');
         U.viscosity.value = v('viscosity');
+        U.responseMemory.value = v('responseMemory');
+        U.speciesCompetition.value = v('speciesCompetition');
+        U.speciesFamilies.value = v('speciesFamilies');
         U.phaseLens.value = v('phaseLens');
+        U.frequencyFamilies.value = v('frequencyFamilies');
+        U.frequencySpread.value = v('frequencySpread');
+        U.phaseCoupling.value = v('phaseCoupling');
+        U.phaseForce.value = v('phaseForce');
+        U.spinor.value = v('spinor');
+        U.mobiusTwist.value = v('mobiusTwist');
         U.momentumCoupling.value = v('momentumCoupling');
         U.neighborFilter.value = v('neighborFilter');
         U.pairPathGate.value = v('pairPathGate');
@@ -3104,6 +3534,7 @@ export class Engine {
         U.equilibrium.value = v('equilibrium');
         U.coherence.value = v('coherence');
         U.scaleDepth.value = v('scaleDepth');
+        U.exclusion.value = v('exclusion');
         U.pointSize.value = v('resolution');
         U.pointOpacity.value = v('opacity');
         if (U.halfLife) U.halfLife.value = v('halfLife') ?? 15.0;
@@ -5373,6 +5804,15 @@ function normalizeMassFamilies(value) {
     return n >= 4 ? 5 : n >= 2 ? 3 : 1;
 }
 
+function normalizeSpeciesFamilies(value) {
+    return Number(value) >= 4 ? 5 : 3;
+}
+
+function normalizeFrequencyFamilies(value) {
+    const n = Number(value);
+    return n >= 4 ? 5 : n >= 2 ? 3 : 1;
+}
+
 // Reflect Unbound mode as a body class so CSS can reveal the broken-chain
 // indicator on every unboundable slider at once. Called from the
 // Bound/Unbound toggle and once on UI build to pick up persisted state.
@@ -5403,9 +5843,30 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     const unsignedFractionFocused = (key === 'coherence' || key === 'tempo') && _min === 0 && _max > 1;
     const signedFractionFocused = (key === 'coherence' || key === 'tempo') && _min < -1 && _max > 1;
     const fractionFocused = unsignedFractionFocused || signedFractionFocused;
+    // Response Memory is perceptual in duration rather than amplitude.
+    // Give each quarter of the track another decade of persistence:
+    //   25% -> 0.9, 50% -> 0.99, 75% -> 0.999, 100% -> 0.9999.
+    // This makes long hysteresis reachable without crushing its short,
+    // useful range into the first few pixels.
+    const memoryFocused = key === 'responseMemory' && _min === 0 && _max < 1;
+    // Particle size and render-only spacing are perceived multiplicatively,
+    // especially at large camera distances. A logarithmic track preserves
+    // fine control near the original 0.1..10 working range while making
+    // genuinely large distant-view quanta reachable.
+    const resolutionFocused =
+        (key === 'resolution' || key === 'presentationScale') &&
+        _min > 0 && _max > _min;
     const FRACTION_TRACK = key === 'tempo' ? 0.80 : 0.60;
     const TAIL_TRACK = (1 - FRACTION_TRACK) * 0.5;
     const toTrack = (value) => {
+        if (resolutionFocused) {
+            const safeValue = Math.max(_min, Math.min(_max, value));
+            return Math.log(safeValue / _min) / Math.log(_max / _min);
+        }
+        if (memoryFocused) {
+            if (value <= 0) return 0;
+            return Math.max(0, Math.min(1, -Math.log10(1 - Math.min(value, _max)) / 4));
+        }
         if (!fractionFocused) return value;
         if (signedFractionFocused) {
             if (value < -1) return ((value - _min) / (-1 - _min)) * TAIL_TRACK;
@@ -5416,6 +5877,12 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
         return FRACTION_TRACK + ((value - 1) / (_max - 1)) * (1 - FRACTION_TRACK);
     };
     const fromTrack = (position) => {
+        if (resolutionFocused) {
+            return _min * Math.pow(_max / _min, Math.max(0, Math.min(1, position)));
+        }
+        if (memoryFocused) {
+            return Math.min(_max, 1 - Math.pow(10, -4 * Math.max(0, Math.min(1, position))));
+        }
         if (!fractionFocused) return position;
         if (signedFractionFocused) {
             if (position < TAIL_TRACK) return _min + (position / TAIL_TRACK) * (-1 - _min);
@@ -5427,9 +5894,10 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
         if (position <= FRACTION_TRACK) return position / FRACTION_TRACK;
         return 1 + ((position - FRACTION_TRACK) / (1 - FRACTION_TRACK)) * (_max - 1);
     };
-    const trackMin = fractionFocused ? 0 : _min;
-    const trackMax = fractionFocused ? 1 : _max;
-    const trackStep = fractionFocused ? 0.0005 : _step;
+    const focusedTrack = fractionFocused || memoryFocused || resolutionFocused;
+    const trackMin = focusedTrack ? 0 : _min;
+    const trackMax = focusedTrack ? 1 : _max;
+    const trackStep = focusedTrack ? 0.0005 : _step;
     const pct = ((toTrack(_val) - trackMin) / (trackMax - trackMin)) * 100;
     const d = document.createElement('div');
     d.className = 'row';
@@ -5440,7 +5908,9 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     // Chrome/appearance keys stay clamped even in Unbound, so no flag.
     if (!UNBOUND_ALWAYS_CLAMPED_KEYS.has(key)) d.dataset.unboundable = '1';
     if ((window.S[key + '_mod'] || 0) > 0.001) d.dataset.modulating = 'true';
-    const fmtVal = (v) => Math.abs(v) < 1 ? v.toFixed(3) : Math.abs(v) < 100 ? Number(v).toFixed(1) : Math.round(v);
+    const fmtVal = (v) => key === 'responseMemory'
+        ? (v >= 0.99 ? v.toFixed(4) : v.toFixed(3))
+        : Math.abs(v) < 1 ? v.toFixed(3) : Math.abs(v) < 100 ? Number(v).toFixed(1) : Math.round(v);
 
     d.innerHTML = `
         <div class="label">
@@ -5456,6 +5926,36 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
 
     const inp = d.querySelector('input');
     const valSpan = d.querySelector('.val');
+    let fineInp = null;
+    let fineDelta = null;
+    let fineMarker = null;
+    let fineAnchor = _val;
+    let fineDriving = false;
+    let fineControl = null;
+    if (key === 'coherence') {
+        d.classList.add('has-fine-control');
+        fineControl = document.createElement('div');
+        fineControl.className = 'coherence-fine';
+        fineControl.innerHTML = `
+            <span class="coherence-fine-label">Fine &plusmn;1</span>
+            <div class="coherence-fine-track"><i style="--p:50%"></i>
+                <input type="range" min="-1" max="1" step="0.001" value="0"
+                    aria-label="Coherence Fine" aria-valuetext="0.000">
+            </div>
+            <span class="coherence-fine-delta">0.000</span>
+        `;
+        fineInp = fineControl.querySelector('input');
+        fineDelta = fineControl.querySelector('.coherence-fine-delta');
+        fineMarker = fineControl.querySelector('.coherence-fine-track i');
+    }
+    const syncFineControl = (delta = 0) => {
+        if (!fineInp) return;
+        const safeDelta = Math.max(-1, Math.min(1, Number(delta) || 0));
+        fineInp.value = safeDelta;
+        fineInp.setAttribute('aria-valuetext', safeDelta.toFixed(3));
+        fineDelta.textContent = (safeDelta > 0 ? '+' : '') + safeDelta.toFixed(3);
+        fineMarker.style.setProperty('--p', ((safeDelta + 1) * 50) + '%');
+    };
     const applyMassSpectrumGradient = () => {
         if (key !== 'massRange') return;
         const rawFamilies = Number(window.S.massFamilies) || 1;
@@ -5505,6 +6005,13 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
         if (key === 'massFamilies' && window.refreshMassSpectrumGradient) {
             window.refreshMassSpectrumGradient();
         }
+        // Programmatic or coarse changes establish a new fine-adjustment
+        // center. While the fine control itself is driving, preserve its
+        // anchor so the +/-1 window stays stable throughout the gesture.
+        if (fineInp && !fineDriving) {
+            fineAnchor = Number(val);
+            syncFineControl(0);
+        }
         if (cb) cb(val);
     };
 
@@ -5513,7 +6020,11 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     const updateVal = (val, isProgrammatic = false) => {
         window.S[key] = key === 'massFamilies'
             ? normalizeMassFamilies(val)
-            : parseFloat(val);
+            : key === 'speciesFamilies'
+                ? normalizeSpeciesFamilies(val)
+                : key === 'frequencyFamilies'
+                    ? normalizeFrequencyFamilies(val)
+                : parseFloat(val);
         sliderSync[key](window.S[key]);
         // Live readout toast: shows "Label: value" in the center-anchor
         // toast position so users can see the value as they scrub without
@@ -5521,7 +6032,7 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
         // restore, waypoint travel) skip the toast since they aren't
         // user-driven.
         if (!isProgrammatic && window.showParamToast) {
-            window.showParamToast(label, formatParamValue(window.S[key]));
+            window.showParamToast(label, fmtVal(window.S[key]));
         }
         // Tour only cancels on changes to params it animates.
         if (!isProgrammatic && window.tour && window.tour.active && TOUR_STOPPING_KEYS.has(key)) window.stopTour();
@@ -5532,6 +6043,28 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     inp.addEventListener('input', e => {
         if (e.isTrusted) updateVal(fromTrack(Number(e.target.value)), false);
     });
+    if (fineInp) {
+        fineInp.addEventListener('pointerdown', () => {
+            fineAnchor = Number(window.S[key]);
+            syncFineControl(0);
+        });
+        fineInp.addEventListener('input', e => {
+            if (!e.isTrusted) return;
+            const delta = Number(e.target.value);
+            fineDriving = true;
+            const adjusted = clampForBoundlessMode(key, fineAnchor + delta, _min, _max);
+            updateVal(adjusted, false);
+            syncFineControl(delta);
+            fineDriving = false;
+        });
+        // Treat Fine as a spring-centered trim. Committing the gesture moves
+        // the anchor to the resulting coherence and returns the marker to
+        // zero, ready for another precise +/-1 pass.
+        fineInp.addEventListener('change', () => {
+            fineAnchor = Number(window.S[key]);
+            syncFineControl(0);
+        });
+    }
     d.addEventListener('wheel', e => {
         // Wheel-scrub is range-clamped (bounded gesture, no "past edge" signal).
         // Typed entry and drag-scrub allow out-of-range — stronger intent.
@@ -5671,6 +6204,7 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     valSpan.addEventListener('blur', commit);
 
     p.appendChild(d);
+    if (fineControl) p.appendChild(fineControl);
     return d;
 }
 
@@ -6021,7 +6555,16 @@ export function buildUI(engine) {
     makeSlider(pb, c.equilibrium?.label || 'Equilibrium', c.equilibrium?.sub ||'noise speed', c.equilibrium?.ll ||'tranquil', c.equilibrium?.lr ||'random', 'equilibrium', .001, .2, .001);
     makeSlider(pb, c.temperature?.label || 'Temperature', c.temperature?.sub ||'noise intensity', c.temperature?.ll ||'glacial', c.temperature?.lr ||'firey', 'temperature', 0, 3, .01);
     makeSlider(pb, c.viscosity?.label || 'Viscosity', c.viscosity?.sub ||'sluggishness', c.viscosity?.ll ||'fluid', c.viscosity?.lr ||'thick', 'viscosity', 0, 1, .01);
+    makeSlider(pb, c.responseMemory?.label || 'Response Memory', c.responseMemory?.sub ||'retained force history', c.responseMemory?.ll ||'instant', c.responseMemory?.lr ||'persistent', 'responseMemory', 0, .9999, .0001);
+    makeSlider(pb, c.speciesCompetition?.label || 'Competition', c.speciesCompetition?.sub ||'cyclic chase and flee', c.speciesCompetition?.ll ||'neutral', c.speciesCompetition?.lr ||'cyclic', 'speciesCompetition', 0, 1, .001);
+    makeSlider(pb, c.speciesFamilies?.label || 'Species Families', c.speciesFamilies?.sub ||'cyclic influence groups', c.speciesFamilies?.ll ||'three', c.speciesFamilies?.lr ||'five', 'speciesFamilies', 3, 5, 2);
     makeSlider(pb, c.phaseLens?.label || 'Phase Lens', c.phaseLens?.sub ||'tempo-driven curl focus', c.phaseLens?.ll ||'lag', c.phaseLens?.lr ||'lead', 'phaseLens', -1, 1, .001);
+    makeSlider(pb, c.frequencyFamilies?.label || 'Frequency Families', c.frequencyFamilies?.sub ||'stable particle clocks', c.frequencyFamilies?.ll ||'unison', c.frequencyFamilies?.lr ||'five', 'frequencyFamilies', 1, 5, 2);
+    makeSlider(pb, c.frequencySpread?.label || 'Frequency Spread', c.frequencySpread?.sub ||'family separation in octaves', c.frequencySpread?.ll ||'unison', c.frequencySpread?.lr ||'four octaves', 'frequencySpread', 0, 4, .001);
+    makeSlider(pb, c.phaseCoupling?.label || 'Phase Coupling', c.phaseCoupling?.sub ||'local oscillator agreement', c.phaseCoupling?.ll ||'anti-lock', c.phaseCoupling?.lr ||'phase-lock', 'phaseCoupling', -1, 1, .001);
+    makeSlider(pb, c.phaseForce?.label || 'Phase Force', c.phaseForce?.sub ||'phase control of pair response', c.phaseForce?.ll ||'spatial', c.phaseForce?.lr ||'resonant', 'phaseForce', 0, 1, .001);
+    makeSlider(pb, c.spinor?.label || 'Spinor', c.spinor?.sub ||'two-sheeted 4π phase', c.spinor?.ll ||'vector', c.spinor?.lr ||'double cover', 'spinor', 0, 1, .001);
+    makeSlider(pb, c.mobiusTwist?.label || 'Möbius Twist', c.mobiusTwist?.sub ||'non-orientable curl transport', c.mobiusTwist?.ll ||'oriented', c.mobiusTwist?.lr ||'inside-out', 'mobiusTwist', 0, 1, .001);
     makeSlider(pb, c.momentumCoupling?.label || 'Momentum Coupling', c.momentumCoupling?.sub ||'local velocity entrainment', c.momentumCoupling?.ll ||'individual', c.momentumCoupling?.lr ||'collective', 'momentumCoupling', 0, .25, .005);
     makeSlider(pb, c.spatialInversion?.label || 'Inversion', c.spatialInversion?.sub ||'fraction-space blend', c.spatialInversion?.ll ||'distance', c.spatialInversion?.lr ||'reciprocal', 'spatialInversion', 0, 1, .01);
     makeSlider(pb, c.zeroWidth?.label || 'Zero Width', c.zeroWidth?.sub ||'finite passage through zero', c.zeroWidth?.ll ||'sharp', c.zeroWidth?.lr ||'wide', 'zeroWidth', .01, 1, .01);
@@ -6029,6 +6572,7 @@ export function buildUI(engine) {
     makeSection(pb, 'Field', 'domain, attraction, and containment');
     makeSlider(pb, c.inversion?.label || 'Compression', c.inversion?.sub ||'domain extent', c.inversion?.ll ||'contract', c.inversion?.lr ||'expand', 'inversion', 30, 500, 1);
     makeSlider(pb, c.scaleDepth?.label || 'Scale Depth', c.scaleDepth?.sub ||'attraction force', c.scaleDepth?.ll ||'micro', c.scaleDepth?.lr ||'macro', 'scaleDepth', 0, 5, .01);
+    makeSlider(pb, c.exclusion?.label || 'Exclusion', c.exclusion?.sub ||'softened Coulomb separation', c.exclusion?.ll ||'packing', c.exclusion?.lr ||'spacing', 'exclusion', 0, 1, .001);
     makeSlider(pb, c.homePull?.label || 'Home Pull', c.homePull?.sub ||'radial return strength', c.homePull?.ll ||'free', c.homePull?.lr ||'contained', 'homePull', 0, 1, .01);
     makeSlider(pb, c.worldBoundary?.label || 'World Boundary', c.worldBoundary?.sub ||'distance before rebirth', c.worldBoundary?.ll ||'off', c.worldBoundary?.lr ||'far', 'worldBoundary', 0, 1000, 1);
 
@@ -6102,8 +6646,8 @@ export function buildUI(engine) {
     const sb = document.getElementById('settingsBody'); sb.innerHTML = '';
 
     makeSection(sb, 'Form', 'resolution, spacing, and quanta');
-    makeSlider(sb, c.resolution?.label || 'Resolution', c.resolution?.sub ||'particle size', c.resolution?.ll ||'-rez', c.resolution?.lr ||'+rez', 'resolution', .1, 20, .1);
-    makeSlider(sb, c.presentationScale?.label || 'Presentation Scale', c.presentationScale?.sub ||'render-only spacing', c.presentationScale?.ll ||'compact', c.presentationScale?.lr ||'expanded', 'presentationScale', .1, 50, .01);
+    makeSlider(sb, c.resolution?.label || 'Resolution', c.resolution?.sub ||'particle size', c.resolution?.ll ||'-rez', c.resolution?.lr ||'+rez', 'resolution', .1, 200, .1);
+    makeSlider(sb, c.presentationScale?.label || 'Presentation Scale', c.presentationScale?.sub ||'render-only spacing', c.presentationScale?.ll ||'compact', c.presentationScale?.lr ||'expanded', 'presentationScale', .1, 100, .01);
 
     const quantaT = T.quanta || { label: 'Quanta', items: ['Circle', 'Square', 'Diamond'] };
     makeGroupToggles(sb, [
@@ -6649,11 +7193,21 @@ window.S = {
     inversion: 30,
     halfLife: 13.9,
     scaleDepth: 0.0,
+    exclusion: 0.0,
     coherence: 1.0,
     equilibrium: 0.001,
     temperature: 0.0,
     viscosity: 0.0,
+    responseMemory: 0.0,
+    speciesCompetition: 0.0,
+    speciesFamilies: 3,
     phaseLens: 0.0,
+    frequencyFamilies: 1,
+    frequencySpread: 0.0,
+    phaseCoupling: 0.0,
+    phaseForce: 0.0,
+    spinor: 0.0,
+    mobiusTwist: 0.0,
     momentumCoupling: 0.0,
     neighborFilter: 1.0,
     unifiedDispatch: 1.0,
@@ -6827,7 +7381,11 @@ function validateWaypoint(w) {
         if (_isFiniteNumber(inParams[k])) {
             out.params[k] = k === 'massFamilies'
                 ? normalizeMassFamilies(inParams[k])
-                : inParams[k];
+                : k === 'speciesFamilies'
+                    ? normalizeSpeciesFamilies(inParams[k])
+                    : k === 'frequencyFamilies'
+                        ? normalizeFrequencyFamilies(inParams[k])
+                    : inParams[k];
         }
     });
 
@@ -6886,6 +7444,16 @@ const _STATE_ENUMS = {
 const _STATE_CLAMPS = {
     freeEnergy: [0, 1_000_000],
     phaseLens: [-1, 1],
+    responseMemory: [0, 0.9999],
+    speciesCompetition: [0, 1],
+    speciesFamilies: [3, 5],
+    frequencyFamilies: [1, 5],
+    frequencySpread: [0, 4],
+    phaseCoupling: [-1, 1],
+    phaseForce: [0, 1],
+    spinor: [0, 1],
+    mobiusTwist: [0, 1],
+    exclusion: [0, 1],
     momentumCoupling: [0, 0.25],
     neighborFilter: [0, 1],
     unifiedDispatch: [0, 1],
@@ -6919,6 +7487,14 @@ function hydrateState(raw) {
         }
         if (k === 'massFamilies') {
             if (Number.isFinite(Number(v))) window.S[k] = normalizeMassFamilies(v);
+            continue;
+        }
+        if (k === 'speciesFamilies') {
+            if (Number.isFinite(Number(v))) window.S[k] = normalizeSpeciesFamilies(v);
+            continue;
+        }
+        if (k === 'frequencyFamilies') {
+            if (Number.isFinite(Number(v))) window.S[k] = normalizeFrequencyFamilies(v);
             continue;
         }
 
@@ -7034,9 +7610,9 @@ function buildExportPayload(opts) {
     const PRECISION = {
         opacity: 2, panelOpacity: 2, buttonOpacity: 2, volume: 2,
         sat: 2, lightness: 2, hue: 3,
-        equilibrium: 3, temperature: 2, viscosity: 2, phaseLens: 3,
+        equilibrium: 3, temperature: 2, viscosity: 2, responseMemory: 4, speciesCompetition: 3, speciesFamilies: 0, phaseLens: 3, frequencyFamilies: 0, frequencySpread: 3, phaseCoupling: 3, phaseForce: 3, spinor: 3, mobiusTwist: 3,
         mass: 2, massFamilies: 0, massRange: 2,
-        scaleDepth: 2, coherence: 3, homePull: 2,
+        scaleDepth: 2, exclusion: 3, coherence: 3, homePull: 2,
         worldBoundary: 0, presentationScale: 2, halfLife: 1,
         bgGlow: 2, bgBlur: 1, tempo: 2, trailLen: 0,
         resolution: 2, inversion: 0, freeEnergy: 0,
@@ -7860,9 +8436,9 @@ function _buildSharePayload(wp, opts) {
     // 0.30000000000000004 in the output.
     const PREC = {
         opacity: 2, hue: 3, sat: 2, lightness: 2,
-        equilibrium: 3, temperature: 2, viscosity: 2, phaseLens: 3, mass: 2,
+        equilibrium: 3, temperature: 2, viscosity: 2, responseMemory: 4, speciesCompetition: 3, speciesFamilies: 0, phaseLens: 3, frequencyFamilies: 0, frequencySpread: 3, phaseCoupling: 3, phaseForce: 3, spinor: 3, mobiusTwist: 3, mass: 2,
         massFamilies: 0, massRange: 2,
-        scaleDepth: 2, coherence: 3, homePull: 2,
+        scaleDepth: 2, exclusion: 3, coherence: 3, homePull: 2,
         worldBoundary: 0, presentationScale: 2, halfLife: 1, tempo: 2,
         trailLen: 0, bgGlow: 2, bgBlur: 1,
         resolution: 2, inversion: 0, freeEnergy: 0,
@@ -8227,8 +8803,8 @@ function init() {
   const kMap = {
       'KeyQ': { k: 'freeEnergy', d: -2000, min: 500, max: 1000000 },
       'KeyE': { k: 'freeEnergy', d: 2000, min: 500, max: 1000000 },
-      'KeyZ': { k: 'resolution', d: -0.2, min: 0.1, max: 20 },
-      'KeyX': { k: 'resolution', d: 0.2, min: 0.1, max: 20 },
+      'KeyZ': { k: 'resolution', d: -0.2, min: 0.1, max: 200 },
+      'KeyX': { k: 'resolution', d: 0.2, min: 0.1, max: 200 },
       'KeyR': { k: 'equilibrium', d: -0.005, min: 0.001, max: 0.2 },
       'KeyT': { k: 'equilibrium', d: 0.005, min: 0.001, max: 0.2 },
       // Temperature: G = glacial (down), F = firey (up). Order in this
