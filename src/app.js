@@ -8278,7 +8278,7 @@ const ANALYSIS_WORKFLOW_BUTTONS = Object.freeze({
     analyze: 'signalAnalyzeButton'
 });
 
-const SESSION_STARTING_CREDITS = 100;
+const SESSION_STARTING_CREDITS = 1000;
 const DICE_ROLL_COST = 100;
 const DICE_DISCOVERY_BONUS = 0.10;
 
