@@ -7,6 +7,61 @@
 A Free, Open Source WebGPU phase-space visualizer / particle-based morphoscope.<br />
 Part of the [Scale Space](https://reddit.com/r/ScaleSpace) project.
 
+## Experimental operators
+
+This fork keeps each added operator independently ablatable. **Momentum
+Coupling** lets nearby particles share velocity in proportion to proximity.
+**Inversion** blends signed distance from the equilibrium shell with the
+zero-safe reciprocal `x / (x² + ε²)`, where **Zero Width** controls `ε`.
+**Coherence** accepts fractional values down to exact zero. Its computational
+radius is `√(C² + ε²)`, while the activity gate `C² / (C² + ε²)` guarantees
+that `C = 0` produces exactly zero neighbor force without invalid division.
+Negative coherence uses the smooth orientation `C / √(C² + ε²)`, reversing
+neighbor force and momentum coupling without creating a negative radius.
+Hash cells retain a minimum width independent of the physical interaction
+radius, allowing sub-unit neighborhoods without microscopic hash aliasing.
+**Home Pull** scales both radial return forces: `1` is the original confinement
+and `0` permits unconfined travel. **Tempo** devotes most of its slider travel
+to `-1..1`: negative values reverse transport, zero pauses, and positive
+values move forward. Damping and lifecycle use absolute speed, so reverse
+flow is not presented as historical rewind.
+**Phase Lens** adds a deliberately shallow procedural phase to the curl field.
+A small global clock is driven by signed Tempo; negative values lag, positive
+values lead, and `0` restores the original curl force exactly. It adds no phase
+buffer and does not turn pair-distance coherence into a phase-neighbor model.
+**World Boundary** is disabled at `0`; at a positive radius, crossing particles
+reuse the existing origin-rebirth path. **Presentation Scale** expands or
+contracts rendered particle, string, and lattice positions without changing
+the physics coordinates used by coherence, forces, hashing, or the boundary.
+Compute dispatch follows the active Free Energy count while retaining the
+million-particle storage capacity.
+**Mass Families** selects one, three, or five stable per-particle inertia bands.
+**Mass Range** spreads those bands geometrically around Mass by up to two
+octaves. One family or zero range restores uniform mass exactly.
+**Neighbor Filter** uses the existing coherence radius as a cell-level broad
+phase. Neighbor cells whose nearest possible point lies outside coherence are
+skipped before count, member, position, or velocity reads. It changes no
+interaction result; `0` restores the original 27-cell scan exactly.
+Density coloring retains the original eight-cell interpolated hash-density
+view, but those grid reads now run only while Density color mode is selected.
+Mono, Size, and Velocity avoid density work that cannot affect their result.
+**Unified Dispatch** submits grid clear, hash population, and particle physics
+together through Three.js's supported compute-node array path. Their order and
+buffers are unchanged; `0` restores the original three separate submissions.
+**Pair Path Gate** skips attraction/inversion arithmetic while both Scale Depth
+and spatial Inversion are inactive, and skips neighbor-velocity reads while
+Momentum Coupling is inactive. `0` executes the original unconditional path.
+Coherence cell bounds are evaluated in cell-local coordinates, hash indices
+are built only after a cell overlaps the coherence sphere, and accepted pairs
+reuse the squared-distance result instead of recomputing vector length.
+**Neighbor Budget** optionally caps candidate slots visited per particle per
+frame. `0` preserves the original unlimited traversal. Positive budgets visit
+the home cell first and rotate surrounding-cell order per particle to avoid a
+fixed spatial bias; this is an explicit performance/interaction-detail tradeoff.
+The original control called Inversion is labeled **Compression**, reflecting
+its actual role as the simulation's domain extent. Set Momentum Coupling and
+Inversion to `0` to recover the original force law.
+
 <img src="img/Scale-Space-Synthesist-v1.0-Screenshot.png" alt="Scale Space Synthesis" width="1024px" align="center" />
 
 *Scroll further down for more photos.*
@@ -61,7 +116,7 @@ dist/          generated standalone build
 | R / T | Equilibrium (noise speed) |
 | F / G | Temperature (noise intensity) |
 | V / B | Coherence (attraction radius) |
-| I / O | Inversion (compression) |
+| I / O | Compression |
 | N / M | Scale depth (attraction force) |
 | K / L | Half-life (particle lifespan) |
 | Left-click canvas | Open Parameters radial menu |

@@ -25,14 +25,23 @@ body {
  * state from loadPanelPos survives both initial reveal and Tab cycles.
  * pointer-events tied to the same gate so clicks can't reach hidden UI.
  */
-.dock, #hud-title, #hud {
+.dock, #hud-title, #hud, #sessionScore, #rollDiceButton, #enhanceButton, #scanButton, #analyzeButton, #signalAnalyzeButton, #completeStudyButton, #studySubmitPanel, #analysisReadout {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.4s ease;
 }
 body.ui-ready .dock,
 body.ui-ready #hud-title,
-body.ui-ready #hud {
+body.ui-ready #hud,
+body.ui-ready #sessionScore,
+body.ui-ready #rollDiceButton,
+body.ui-ready #enhanceButton,
+body.ui-ready #scanButton,
+body.ui-ready #analyzeButton,
+body.ui-ready #signalAnalyzeButton,
+body.ui-ready #completeStudyButton,
+body.ui-ready #studySubmitPanel,
+body.ui-ready #analysisReadout {
     opacity: 1;
     pointer-events: auto;
 }
@@ -47,6 +56,46 @@ body.ui-ready #hud {
 
 #ui-root > * {
     pointer-events: auto;
+}
+
+#sessionScore {
+    position: fixed;
+    top: 10px;
+    right: 16px;
+    z-index: 600;
+    min-width: 112px;
+    height: 23px;
+    padding: 0 9px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    border: 1px solid rgba(109, 255, 176, calc(0.42 * var(--btn-alpha, 1)));
+    border-radius: 3px;
+    color: rgba(109, 255, 176, calc(0.92 * var(--btn-alpha, 1)));
+    background: rgba(7, 20, 18, calc(0.76 * var(--btn-alpha, 1)));
+    box-shadow:
+        0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--btn-alpha, 1))),
+        0 0 12px rgba(109, 255, 176, calc(0.08 * var(--btn-alpha, 1)));
+    backdrop-filter: blur(var(--btn-blur, 6px));
+    font: 600 8px/1 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+#sessionScore strong {
+    color: #9dffbf;
+    font-size: 11px;
+    text-shadow: 0 0 8px rgba(109, 255, 176, 0.5);
+}
+
+#sessionScore small {
+    font: inherit;
+    opacity: 0.72;
+}
+
+#sessionScore.credit-change {
+    animation: creditPulse 520ms ease-out;
 }
 
 .panel, .hud-element, .dock, .testbar {
@@ -74,6 +123,447 @@ body.ui-ready #hud {
     height: 100vh;
     mix-blend-mode: screen;
     transform: scale(1.1);
+}
+
+#rollDiceButton,
+#enhanceButton,
+#scanButton,
+#analyzeButton,
+#signalAnalyzeButton,
+#completeStudyButton {
+    position: fixed;
+    top: 38px;
+    right: 16px;
+    z-index: 600;
+    min-width: 92px;
+    height: 27px;
+    padding: 0 12px;
+    border: 1px solid rgba(80, 220, 255, calc(0.42 * var(--btn-alpha, 1)));
+    border-radius: 3px;
+    color: rgba(204, 230, 255, calc(0.9 * var(--btn-alpha, 1)));
+    background: linear-gradient(
+        180deg,
+        rgba(12, 12, 31, calc(0.82 * var(--btn-alpha, 1))),
+        rgba(8, 8, 26, calc(0.72 * var(--btn-alpha, 1)))
+    );
+    box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--btn-alpha, 1)));
+    backdrop-filter: blur(var(--btn-blur, 6px));
+    font: 600 9px/1 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transform-origin: center;
+    transition:
+        opacity 0.4s ease,
+        color 140ms ease,
+        border-color 140ms ease,
+        background 140ms ease,
+        transform 120ms ease;
+}
+
+#enhanceButton {
+    top: 70px;
+}
+
+#scanButton {
+    top: 102px;
+}
+
+#analyzeButton {
+    top: 134px;
+}
+
+#signalAnalyzeButton {
+    top: 166px;
+}
+
+#completeStudyButton {
+    top: 198px;
+    border-color: rgba(150, 156, 168, calc(0.42 * var(--btn-alpha, 1)));
+    color: rgba(190, 196, 207, calc(0.88 * var(--btn-alpha, 1)));
+    background: linear-gradient(
+        180deg,
+        rgba(37, 39, 46, calc(0.86 * var(--btn-alpha, 1))),
+        rgba(24, 26, 31, calc(0.78 * var(--btn-alpha, 1)))
+    );
+}
+
+#completeStudyButton:disabled {
+    opacity: 0.42 !important;
+    cursor: not-allowed;
+    filter: saturate(0.2);
+}
+
+#rollDiceButton:disabled {
+    opacity: 0.42 !important;
+    cursor: not-allowed;
+    filter: saturate(0.25);
+}
+
+#completeStudyButton.study-saved::after {
+    content: ' ✓';
+    color: rgba(158, 211, 169, calc(0.92 * var(--btn-alpha, 1)));
+}
+
+#studySubmitPanel {
+    position: fixed;
+    top: 232px;
+    right: 16px;
+    z-index: 620;
+    width: 270px;
+    padding: 10px;
+    border: 1px solid rgba(150, 156, 168, calc(0.46 * var(--btn-alpha, 1)));
+    border-radius: 4px;
+    color: rgba(210, 214, 222, calc(0.92 * var(--btn-alpha, 1)));
+    background: rgba(24, 26, 31, calc(0.94 * var(--btn-alpha, 1)));
+    box-shadow: 0 7px 22px rgba(0, 0, 0, calc(0.34 * var(--btn-alpha, 1)));
+    backdrop-filter: blur(var(--btn-blur, 6px));
+    font: 500 9px/1.45 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+#studySubmitPanel[hidden] {
+    display: none;
+}
+
+#studySubmitPanel label {
+    display: block;
+    margin-bottom: 6px;
+    color: rgba(205, 209, 218, calc(0.94 * var(--btn-alpha, 1)));
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+#studySubmitPanel textarea {
+    display: block;
+    width: 100%;
+    min-height: 76px;
+    max-height: 180px;
+    resize: vertical;
+    padding: 7px 8px;
+    border: 1px solid rgba(150, 156, 168, calc(0.34 * var(--btn-alpha, 1)));
+    border-radius: 3px;
+    outline: none;
+    color: rgba(230, 233, 239, calc(0.94 * var(--btn-alpha, 1)));
+    background: rgba(9, 10, 14, calc(0.74 * var(--btn-alpha, 1)));
+    font: 500 9px/1.45 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+#studySubmitPanel textarea:focus {
+    border-color: rgba(190, 196, 207, calc(0.72 * var(--btn-alpha, 1)));
+    box-shadow: 0 0 0 2px rgba(150, 156, 168, 0.1);
+}
+
+.study-submit-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 6px;
+    color: rgba(145, 151, 163, calc(0.78 * var(--btn-alpha, 1)));
+    font-size: 8px;
+}
+
+.study-submit-meta span:last-child {
+    text-align: right;
+}
+
+.study-submit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 9px;
+}
+
+.study-submit-actions button {
+    min-width: 66px;
+    height: 24px;
+    padding: 0 9px;
+    border: 1px solid rgba(150, 156, 168, calc(0.4 * var(--btn-alpha, 1)));
+    border-radius: 3px;
+    color: rgba(205, 209, 218, calc(0.92 * var(--btn-alpha, 1)));
+    background: rgba(47, 50, 58, calc(0.78 * var(--btn-alpha, 1)));
+    font: 600 8px/1 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.study-submit-actions button:hover {
+    border-color: rgba(205, 209, 218, calc(0.76 * var(--btn-alpha, 1)));
+    color: #f1f2f5;
+}
+
+#analysisReadout {
+    position: fixed;
+    top: 232px;
+    right: 16px;
+    z-index: 600;
+    width: 224px;
+    min-height: 0;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: rgba(204, 230, 255, calc(0.88 * var(--btn-alpha, 1)));
+    background: rgba(7, 8, 23, calc(0.76 * var(--btn-alpha, 1)));
+    box-shadow: 0 6px 18px rgba(0, 0, 0, calc(0.24 * var(--btn-alpha, 1)));
+    backdrop-filter: blur(var(--btn-blur, 6px));
+    font: 500 9px/1.5 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+    transform: translateY(-4px);
+    overflow: hidden;
+    visibility: hidden;
+    transition:
+        opacity 180ms ease,
+        transform 180ms ease,
+        border-color 180ms ease,
+        width 220ms ease,
+        padding 220ms ease;
+}
+
+#analysisReadout.visible {
+    visibility: visible;
+    pointer-events: auto;
+    padding: 9px 11px;
+    border-color: rgba(80, 220, 255, calc(0.3 * var(--btn-alpha, 1)));
+    transform: translateY(0);
+}
+
+#analysisReadout.result-reveal {
+    animation: analysis-result-reveal 500ms cubic-bezier(0.2, 0.85, 0.25, 1);
+}
+
+@keyframes analysis-result-reveal {
+    0% {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.96);
+        border-color: rgba(109, 255, 176, 0);
+        box-shadow: 0 0 0 rgba(109, 255, 176, 0);
+    }
+    58% {
+        opacity: 1;
+        transform: translateY(1px) scale(1.012);
+        border-color: rgba(109, 255, 176, calc(0.72 * var(--btn-alpha, 1)));
+        box-shadow:
+            0 8px 24px rgba(0, 0, 0, calc(0.3 * var(--btn-alpha, 1))),
+            0 0 18px rgba(109, 255, 176, calc(0.2 * var(--btn-alpha, 1)));
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+#analysisReadout.collapsed {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-color: rgba(109, 255, 176, calc(0.4 * var(--btn-alpha, 1)));
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+#analysisReadout .analysis-glyph {
+    display: none;
+}
+
+#analysisReadout.collapsed .analysis-glyph {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    color: rgba(109, 255, 176, calc(0.94 * var(--btn-alpha, 1)));
+    background: transparent;
+    font: 700 14px/1 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    cursor: pointer;
+}
+
+#analysisReadout.collapsed .analysis-card-content {
+    display: none;
+}
+
+#analysisReadout .analysis-title {
+    color: rgba(109, 255, 176, calc(0.94 * var(--btn-alpha, 1)));
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+}
+
+#analysisReadout .analysis-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 3px;
+}
+
+#analysisReadout .analysis-line span:first-child {
+    color: rgba(140, 160, 190, calc(0.82 * var(--btn-alpha, 1)));
+}
+
+#analysisReadout .analysis-line b {
+    max-width: 132px;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+#analysisReadout .analysis-line.analysis-score b {
+    color: rgba(109, 255, 176, calc(0.98 * var(--btn-alpha, 1)));
+    text-shadow: 0 0 8px rgba(109, 255, 176, 0.58);
+}
+
+#analysisReadout .analysis-teach {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(80, 220, 255, calc(0.14 * var(--btn-alpha, 1)));
+    color: rgba(180, 195, 220, calc(0.8 * var(--btn-alpha, 1)));
+}
+
+#analysisReadout .analysis-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 7px;
+}
+
+#analysisReadout .analysis-actions button {
+    width: 25px;
+    height: 22px;
+    border: 1px solid rgba(80, 220, 255, calc(0.25 * var(--btn-alpha, 1)));
+    border-radius: 3px;
+    color: rgba(204, 230, 255, calc(0.86 * var(--btn-alpha, 1)));
+    background: rgba(10, 12, 30, calc(0.74 * var(--btn-alpha, 1)));
+    font: 600 11px/1 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    cursor: pointer;
+}
+
+#analysisReadout .analysis-actions button:hover {
+    color: #efffff;
+    border-color: rgba(109, 255, 176, calc(0.72 * var(--btn-alpha, 1)));
+    background: rgba(80, 220, 255, calc(0.12 * var(--btn-alpha, 1)));
+}
+
+#rollDiceButton:hover,
+#enhanceButton:hover,
+#scanButton:hover,
+#analyzeButton:hover,
+#signalAnalyzeButton:hover,
+#completeStudyButton:not(:disabled):hover {
+    color: #e8f8ff;
+    border-color: rgba(109, 255, 176, calc(0.7 * var(--btn-alpha, 1)));
+    background: rgba(80, 220, 255, calc(0.1 * var(--btn-alpha, 1)));
+}
+
+#rollDiceButton:active,
+#enhanceButton:active,
+#scanButton:active,
+#analyzeButton:active,
+#signalAnalyzeButton:active,
+#completeStudyButton:not(:disabled):active {
+    transform: scale(0.94);
+}
+
+#rollDiceButton.rolling {
+    animation: diceRoll 360ms cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Enhance is a measured focus pass rather than a random throw, so its
+ * feedback is a compact breathing pulse instead of the dice wobble. */
+#enhanceButton.enhancing {
+    animation: enhancePulse 520ms ease-in-out;
+}
+
+#enhanceButton.waiting {
+    opacity: 0.58;
+}
+
+#scanButton.scanning {
+    animation: scanPulse 1.4s ease-in-out infinite;
+}
+
+#analyzeButton.analyzing {
+    animation: analyzePulse 1.8s ease-in-out infinite;
+}
+
+#signalAnalyzeButton.analyzing {
+    animation: analyzePulse 1.2s ease-in-out infinite;
+}
+
+#enhanceButton.workflow-complete::after,
+#scanButton.workflow-complete::after,
+#analyzeButton.workflow-complete::after,
+#signalAnalyzeButton.workflow-complete::after {
+    content: '✓ +10';
+    display: inline-block;
+    margin-left: 7px;
+    color: rgba(109, 255, 176, calc(0.96 * var(--btn-alpha, 1)));
+    text-shadow: 0 0 7px rgba(109, 255, 176, 0.62);
+}
+
+@keyframes enhancePulse {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.07); box-shadow: 0 0 16px rgba(109, 255, 176, 0.36); }
+    100% { transform: scale(1); }
+}
+
+@keyframes scanPulse {
+    0%, 100% { box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--btn-alpha, 1))); }
+    50% { box-shadow: 0 0 14px rgba(80, 220, 255, calc(0.42 * var(--btn-alpha, 1))); }
+}
+
+@keyframes analyzePulse {
+    0%, 100% {
+        border-color: rgba(80, 220, 255, calc(0.42 * var(--btn-alpha, 1)));
+        box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--btn-alpha, 1)));
+    }
+    50% {
+        border-color: rgba(109, 255, 176, calc(0.9 * var(--btn-alpha, 1)));
+        box-shadow: 0 0 18px rgba(109, 255, 176, calc(0.38 * var(--btn-alpha, 1)));
+    }
+}
+
+@keyframes creditPulse {
+    0% {
+        transform: scale(1);
+        border-color: rgba(109, 255, 176, calc(0.42 * var(--btn-alpha, 1)));
+    }
+    42% {
+        transform: scale(1.06);
+        border-color: rgba(157, 255, 191, calc(0.95 * var(--btn-alpha, 1)));
+        box-shadow:
+            0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--btn-alpha, 1))),
+            0 0 20px rgba(109, 255, 176, calc(0.36 * var(--btn-alpha, 1)));
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes diceRoll {
+    0%   { transform: rotate(0deg) scale(1); }
+    35%  { transform: rotate(-4deg) scale(0.92); }
+    70%  { transform: rotate(3deg) scale(1.06); }
+    100% { transform: rotate(0deg) scale(1); }
+}
+
+body[data-theme="synthesist"] #rollDiceButton,
+body[data-theme="synthesist"] #enhanceButton,
+body[data-theme="synthesist"] #scanButton,
+body[data-theme="synthesist"] #analyzeButton,
+body[data-theme="synthesist"] #signalAnalyzeButton {
+    border-color: rgba(255, 170, 85, calc(0.45 * var(--btn-alpha, 1)));
+    color: rgba(255, 224, 200, calc(0.9 * var(--btn-alpha, 1)));
+}
+
+body[data-theme="synthesist"] #rollDiceButton:hover,
+body[data-theme="synthesist"] #enhanceButton:hover,
+body[data-theme="synthesist"] #scanButton:hover,
+body[data-theme="synthesist"] #analyzeButton:hover,
+body[data-theme="synthesist"] #signalAnalyzeButton:hover {
+    border-color: rgba(255, 195, 120, calc(0.8 * var(--btn-alpha, 1)));
+    color: #fff0df;
+    background: rgba(255, 170, 85, calc(0.1 * var(--btn-alpha, 1)));
 }
 
 .panel {
@@ -266,18 +756,29 @@ body.ui-ready .panel:not(.hidden) {
 }
 
 .row .label {
-    /* Inline label + subhead pattern, matching .section. Horizontal flex
-     * with baseline alignment so the bigger headline text and smaller
-     * subhead text sit on the same line. Saves vertical space; reads as
-     * one cohesive unit. Old stacked column layout meant every slider
-     * with a subhead took two rows of vertical real estate. */
+    /* Keep descriptions directly beneath their control names. Long
+     * experimental labels no longer fight the value column or read as a
+     * second heading when the panel is narrow. */
     color: #d9edf6;
     display: flex;
-    flex-direction: row;
-    align-items: baseline;
-    gap: 8px;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    line-height: 1.15;
 }
-.row .subhead { color: #718a99; font-size: 8px; margin-top: 2px; }
+.row .label > span:first-child {
+    display: block;
+    max-width: 100%;
+}
+.row .subhead {
+    color: #718a99;
+    display: block;
+    font-size: 8px;
+    margin-top: 2px;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
 .row .val { 
     color: #6dffb0;
     font-variant-numeric: tabular-nums; 
@@ -336,16 +837,38 @@ body.boundless .row[data-unboundable="1"] .val::before {
     pointer-events: none;
 }
 
-.bar { 
-    grid-column: 1 / -1; 
-    height: 5px; 
+.bar {
+    grid-column: 1 / -1;
+    height: 5px;
     overflow: hidden; 
     border-radius: 1px; 
     background: rgba(217,237,246,0.08); 
     position: relative;
 }
 
-.bar i { 
+/* Signed phase controls share a visible zero axis. Phase Lens additionally
+ * snaps to this mark during direct manipulation. */
+.row[data-param-key="phaseLens"] .bar::after,
+.row[data-param-key="phaseCoupling"] .bar::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 1px;
+    height: 100%;
+    background: rgba(217, 237, 246, 0.42);
+    box-shadow: 0 0 4px rgba(217, 237, 246, 0.32);
+    pointer-events: none;
+    z-index: 2;
+}
+
+body[data-theme="synthesist"] .row[data-param-key="phaseLens"] .bar::after,
+body[data-theme="synthesist"] .row[data-param-key="phaseCoupling"] .bar::after {
+    background: rgba(255, 170, 85, 0.52);
+    box-shadow: 0 0 4px rgba(255, 170, 85, 0.38);
+}
+
+.bar i {
     display: block; 
     width: var(--v, 50%); 
     height: 100%; 
@@ -364,6 +887,89 @@ body.boundless .row[data-unboundable="1"] .val::before {
     opacity: 0; /* Invisible but clickable */
     cursor: pointer;
     z-index: 10;
+}
+
+.row.has-fine-control {
+    margin-bottom: 5px;
+}
+
+/* Coherence uses microscope-style magnification: a full-range coarse slider
+ * followed by spring-centered Fine and Microscope trims. All three edit the
+ * same physical value; the trims merely change adjustment scale. */
+.coherence-trim {
+    display: grid;
+    grid-template-columns: 74px 1fr 54px;
+    align-items: center;
+    column-gap: 7px;
+    margin: 0 0 8px;
+    color: #718a99;
+    font-size: 8px;
+    letter-spacing: 0.05em;
+}
+
+.coherence-trim + .coherence-trim {
+    margin-bottom: 14px;
+}
+
+.coherence-trim-label {
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.coherence-trim-track {
+    position: relative;
+    height: 5px;
+    border-radius: 1px;
+    background:
+        linear-gradient(90deg,
+            rgba(80,220,255,0.13) 0%,
+            rgba(217,237,246,0.08) 49.5%,
+            rgba(217,237,246,0.20) 50%,
+            rgba(217,237,246,0.08) 50.5%,
+            rgba(109,255,176,0.13) 100%);
+}
+
+.coherence-trim-track i {
+    position: absolute;
+    left: var(--p, 50%);
+    top: -2px;
+    width: 2px;
+    height: 9px;
+    border-radius: 1px;
+    background: #6dffb0;
+    box-shadow: 0 0 6px rgba(109,255,176,0.65);
+    transform: translateX(-1px);
+    pointer-events: none;
+}
+
+.coherence-trim-track input[type=range] {
+    position: absolute;
+    inset: -5px 0;
+    width: 100%;
+    height: 15px;
+    margin: 0;
+    opacity: 0;
+    cursor: ew-resize;
+    z-index: 2;
+}
+
+.coherence-trim-delta {
+    color: #6dffb0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+body[data-theme="synthesist"] .coherence-trim {
+    color: #b08070;
+}
+
+body[data-theme="synthesist"] .coherence-trim-track i {
+    background: #ffaa55;
+    box-shadow: 0 0 6px rgba(255,170,85,0.60);
+}
+
+body[data-theme="synthesist"] .coherence-trim-delta {
+    color: #ffaa55;
 }
 
 /* Short buttons (.tog and .btn) — used throughout panels for toggles like
@@ -1408,6 +2014,51 @@ body:not([data-theme="synthesist"]) .row[data-modulating="true"] .bar {
     box-shadow: inset 0 0 6px rgba(95, 224, 192, 0.25);
 }
 
+/* Simulation administration is deliberately plain: these are machinery
+ * controls, not part of the model's signal or appearance vocabulary. */
+#experimentalBody .admin-control.section .section-head,
+#experimentalBody .admin-control.row .label,
+#experimentalBody .admin-control.row .val,
+#automataBody .admin-control.section .section-head,
+#automataBody .admin-control.row .label,
+#automataBody .admin-control.row .val {
+    color: #a0a0a0 !important;
+    text-shadow: none !important;
+}
+#experimentalBody .admin-control.section .section-sub,
+#experimentalBody .admin-control.row .subhead,
+#automataBody .admin-control.section .section-sub,
+#automataBody .admin-control.row .subhead {
+    color: #707070 !important;
+}
+#experimentalBody .admin-control.row .bar,
+#automataBody .admin-control.row .bar {
+    background: rgba(160, 160, 160, 0.10) !important;
+    box-shadow: none !important;
+}
+#experimentalBody .admin-control.row .bar i,
+#automataBody .admin-control.row .bar i {
+    background: #777 !important;
+    animation: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+}
+#experimentalBody .admin-control.row .val[data-editable="1"]:hover,
+#experimentalBody .admin-control.row .val.scrubbing {
+    background: rgba(160, 160, 160, 0.10) !important;
+}
+#experimentalBody .admin-control.row .val[contenteditable="true"] {
+    outline-color: rgba(160, 160, 160, 0.45) !important;
+    caret-color: #a0a0a0 !important;
+}
+#automataBody .automata-metric {
+    margin-bottom: 10px;
+}
+#automataBody .automata-metric .val {
+    font-size: 9px;
+    white-space: nowrap;
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
  *   CIRCLE BUTTON HOVER (responsiveness fix)
  *   Animate smoothly when toggling between hex and circle (in either direction)
@@ -2039,6 +2690,23 @@ body.engine-ready canvas {
     color: #cce6ff;
     box-shadow: inset 0 -2px 0 rgba(80, 220, 255, 0.8), 0 0 12px rgba(80, 220, 255, 0.15);
     text-shadow: 0 0 6px rgba(80, 220, 255, 0.5);
+}
+/* Six color modes no longer fit legibly in the panel's original one-line
+ * toggle strip. Keep the shared component unchanged and give this selector
+ * a dedicated 3 × 2 arrangement so every mode remains visible and clickable. */
+.group-toggles.color-mode-toggles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.color-mode-toggles .group-toggle-btn {
+    min-width: 0;
+    border-right: 1px solid rgba(80, 220, 255, 0.15);
+}
+.color-mode-toggles .group-toggle-btn:nth-child(3n) {
+    border-right: none;
+}
+.color-mode-toggles .group-toggle-btn:nth-child(-n + 3) {
+    border-bottom: 1px solid rgba(80, 220, 255, 0.15);
 }
 /* .disabled — dependent control whose parent context is off. Examples:
  *   • Include group (Background/Scanlines) when no Save trigger is active
