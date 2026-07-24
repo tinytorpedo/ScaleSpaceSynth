@@ -82,9 +82,9 @@ import {
     float, vec2, vec3, vec4, instanceIndex, uniform,
     dot, length, normalize, sub, add, mul, sin, cos, fract, floor,
     compute, storage, Fn, time, max, min, div, mx_noise_float, step,
-    atomicAdd, atomicStore, uint, int, mod, If, bitAnd, Loop, select, clamp, abs,
-    sqrt, pow,
-    instancedBufferAttribute, modelViewMatrix, cameraProjectionMatrix, vertexIndex, billboarding, uv, cross
+    atomicAdd, atomicStore, uint, int, mod, If, bitAnd, bitXor, Loop, select, clamp, abs,
+    sqrt, pow, log,
+    instancedBufferAttribute, modelViewMatrix, cameraProjectionMatrix, vertexIndex, billboarding, uv, cross, varying
 } from 'three/tsl';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -97,6 +97,9 @@ export const APP_TEXT = {
     },
     "panels": {
         "params": "Params",
+        "experimental": "Experimental",
+        "automata": "Automata",
+        "geometry": "Geometry",
         "optics": "Optics",
         "atlas": "Atlas",
         "controls": "Controls",
@@ -111,18 +114,22 @@ export const APP_TEXT = {
         "halfLife": { "label": "Half-Life", "sub": "particle lifespan", "ll": "mortal", "lr": "immortal" },
         "scaleDepth": { "label": "Scale Depth", "sub": "attraction force", "ll": "micro", "lr": "macro" },
         "exclusion": { "label": "Exclusion", "sub": "softened Coulomb separation", "ll": "packing", "lr": "spacing" },
-        "coherence": { "label": "Coherence", "sub": "signed radius · fraction focus", "ll": "anti-coherent", "lr": "coherent" },
+        "coherence": { "label": "Coherence", "sub": "coarse magnitude · sign follows zero", "ll": "zero", "lr": "200" },
         "equilibrium": { "label": "Equilibrium", "sub": "noise speed", "ll": "tranquil", "lr": "random" },
         "temperature": { "label": "Temperature", "sub": "noise intensity", "ll": "glacial", "lr": "firey" },
         "viscosity": { "label": "Viscosity", "sub": "sluggishness", "ll": "fluid", "lr": "thick" },
         "responseMemory": { "label": "Response Memory", "sub": "retained force history", "ll": "instant", "lr": "persistent" },
         "speciesCompetition": { "label": "Competition", "sub": "cyclic chase and flee", "ll": "neutral", "lr": "cyclic" },
+        "schooling": { "label": "Schooling", "sub": "kin phase and motion alignment", "ll": "individual", "lr": "swarm" },
+        "speciesAgency": { "label": "Agency", "sub": "sparse scouts follow prey signal", "ll": "environment", "lr": "pursuit" },
+        "pilot": { "label": "Pilot", "sub": "1:1024 metric signal routers", "ll": "cells", "lr": "guided tissue" },
+        "predation": { "label": "Predation", "sub": "contact transfers signal integrity", "ll": "kinetic", "lr": "ecology" },
         "speciesFamilies": { "label": "Species Families", "sub": "cyclic influence groups", "ll": "three", "lr": "five" },
-        "phaseLens": { "label": "Phase Lens", "sub": "tempo-driven curl focus", "ll": "lag", "lr": "lead" },
+        "phaseLens": { "label": "Phase Lens", "sub": "pair waveform origin", "ll": "lag", "lr": "lead" },
         "frequencyFamilies": { "label": "Frequency Families", "sub": "stable particle clocks", "ll": "unison", "lr": "five" },
         "frequencySpread": { "label": "Frequency Spread", "sub": "family separation in octaves", "ll": "unison", "lr": "four octaves" },
-        "phaseCoupling": { "label": "Phase Coupling", "sub": "local oscillator agreement", "ll": "anti-lock", "lr": "phase-lock" },
-        "phaseForce": { "label": "Phase Force", "sub": "phase control of pair response", "ll": "spatial", "lr": "resonant" },
+        "phaseCoupling": { "label": "Phase Coupling", "sub": "strain-weighted phase lock", "ll": "anti-lock", "lr": "phase-lock" },
+        "phaseForce": { "label": "Phase Force", "sub": "phase-shifted equilibrium shell", "ll": "spatial", "lr": "resonant" },
         "spinor": { "label": "Spinor", "sub": "two-sheeted 4π phase", "ll": "vector", "lr": "double cover" },
         "mobiusTwist": { "label": "Möbius Twist", "sub": "non-orientable curl transport", "ll": "oriented", "lr": "inside-out" },
         "momentumCoupling": { "label": "Momentum Coupling", "sub": "local velocity entrainment", "ll": "individual", "lr": "collective" },
@@ -132,9 +139,11 @@ export const APP_TEXT = {
         "neighborBudget": { "label": "Neighbor Budget", "sub": "candidate slots per particle", "ll": "all", "lr": "bounded" },
         "spatialInversion": { "label": "Inversion", "sub": "fraction-space blend", "ll": "distance", "lr": "reciprocal" },
         "zeroWidth": { "label": "Zero Width", "sub": "finite passage through zero", "ll": "sharp", "lr": "wide" },
-        "homePull": { "label": "Home Pull", "sub": "radial return strength", "ll": "free", "lr": "contained" },
+        "homePull": { "label": "Home Pull", "sub": "inward trajectory bend", "ll": "free", "lr": "contained" },
         "worldBoundary": { "label": "World Boundary", "sub": "distance before rebirth", "ll": "off", "lr": "far" },
         "presentationScale": { "label": "Presentation Scale", "sub": "render-only spacing", "ll": "compact", "lr": "expanded" },
+        "scaleLens": { "label": "Scale Lens", "sub": "open fractional SSU space", "ll": "linear", "lr": "deep scale" },
+        "cloudLod": { "label": "Cloud LOD", "sub": "camera-local particle detail", "ll": "all particles", "lr": "local clouds" },
         "massFamilies": { "label": "Mass Families", "sub": "discrete inertia bands", "ll": "uniform", "lr": "five" },
         "massRange": { "label": "Mass Range", "sub": "family spread in octaves", "ll": "same", "lr": "wide" },
         "mass": { "label": "Mass", "sub": "inertia", "ll": "light", "lr": "heavy" },
@@ -161,7 +170,7 @@ export const APP_TEXT = {
     },
     "colorMode": {
         "label": "Color Mode",
-        "items": ["Mono", "Size", "Velocity", "Density"]
+        "items": ["Mono", "Size", "Velocity", "Density", "Species", "Log Scale"]
     },
     "moveMode": {
         "label": "Move Mode",
@@ -240,8 +249,8 @@ document.head.appendChild(pulseStyle);
 
 const PARAM_KEYS = [
     'freeEnergy', 'resolution', 'inversion', 'halfLife', 'scaleDepth', 'exclusion',
-    'coherence', 'equilibrium', 'temperature', 'viscosity', 'responseMemory', 'speciesCompetition', 'speciesFamilies', 'phaseLens', 'frequencyFamilies', 'frequencySpread', 'phaseCoupling', 'phaseForce', 'spinor', 'mobiusTwist', 'momentumCoupling', 'neighborFilter', 'unifiedDispatch', 'pairPathGate', 'neighborBudget',
-    'spatialInversion', 'zeroWidth', 'homePull', 'worldBoundary', 'presentationScale',
+    'coherence', 'equilibrium', 'temperature', 'viscosity', 'responseMemory', 'speciesCompetition', 'schooling', 'speciesAgency', 'pilot', 'predation', 'speciesFamilies', 'phaseLens', 'frequencyFamilies', 'frequencySpread', 'phaseCoupling', 'phaseForce', 'spinor', 'mobiusTwist', 'momentumCoupling', 'neighborFilter', 'unifiedDispatch', 'pairPathGate', 'neighborBudget',
+    'spatialInversion', 'zeroWidth', 'homePull', 'worldBoundary', 'projectionNozzle', 'presentationScale', 'scaleLens', 'cloudLod',
     'massFamilies', 'massRange', 'mass',
     'tempo', 'hue', 'sat', 'lightness', 'opacity', 'trailLen',
     'bgGlow', 'bgBlur', 'offsetX', 'offsetY', 'offsetZ', 'billboardOffset'
@@ -249,8 +258,8 @@ const PARAM_KEYS = [
 
 const MODULATABLE_KEYS = [
     'freeEnergy', 'resolution', 'inversion', 'halfLife', 'scaleDepth', 'exclusion',
-    'coherence', 'equilibrium', 'temperature', 'viscosity', 'responseMemory', 'speciesCompetition', 'phaseLens', 'frequencySpread', 'phaseCoupling', 'phaseForce', 'spinor', 'mobiusTwist', 'momentumCoupling',
-    'spatialInversion', 'zeroWidth', 'homePull', 'worldBoundary', 'presentationScale',
+    'coherence', 'equilibrium', 'temperature', 'viscosity', 'responseMemory', 'speciesCompetition', 'schooling', 'speciesAgency', 'pilot', 'predation', 'phaseLens', 'frequencySpread', 'phaseCoupling', 'phaseForce', 'spinor', 'mobiusTwist', 'momentumCoupling',
+    'spatialInversion', 'zeroWidth', 'homePull', 'worldBoundary', 'presentationScale', 'scaleLens', 'cloudLod',
     'massRange', 'mass',
     'tempo', 'opacity', 'hue', 'sat', 'lightness', 'trailLen', 'bgGlow', 'bgBlur'
 ];
@@ -778,12 +787,162 @@ window.captureThumbnailFor = captureThumbnailFor;
 
 export function travelTo(wp) {
     if (!wp) return;
-    const dur = window.tour && window.tour.active ? 5000 + Math.random() * 3000 : 5000;
+    cancelCoherenceAnalysis(true, true);
+    cancelPresentationScan(true, true);
+    const dur = getStateTransitionDurationMs();
     startTransition(wp.params, wp.camDist, wp.camQuatArr, wp.optics, wp.camPosArr, dur);
     // Tag the in-flight transition so the atlas can highlight the destination
     // immediately, not wait for param interpolation to complete.
     if (window.transition) window.transition.targetWpId = wp.id;
     if (window.buildAtlasUI && window.engine) window.buildAtlasUI(window.engine);
+}
+
+function getStateTransitionDurationMs() {
+    const configured = Number(window.S && window.S.stateTransitionSeconds);
+    const seconds = Number.isFinite(configured) ? configured : 5;
+    // Keep a single render-frame floor so a zeroed control still lands
+    // deterministically through the normal transition completion path.
+    return Math.max(16, Math.min(20, Math.max(0, seconds)) * 1000);
+}
+
+function getDiceAutoFrameDistance(engine, roll, fieldPresenceRadius) {
+    if (!engine || !engine.camera) return engine?.cam?.dist ?? 52;
+    const readTarget = (key, fallback) => {
+        const candidate = Number(roll && roll[key]);
+        if (Number.isFinite(candidate)) return candidate;
+        const current = Number(window.S && window.S[key]);
+        return Number.isFinite(current) ? current : fallback;
+    };
+
+    const coherence = readTarget('coherence', 1);
+    const zeroWidth = Math.max(0.001, Math.abs(readTarget('zeroWidth', 0.1)));
+    const ssu = Math.sqrt(coherence * coherence + zeroWidth * zeroWidth);
+    const presentationScale = Math.max(0.000001, Math.abs(readTarget('presentationScale', 1)));
+    const resolution = Math.max(0.1, Math.abs(readTarget('resolution', 0.1)));
+    const compression = Math.max(0.001, Math.abs(readTarget('inversion', 30)));
+    const observedRadius = Number.isFinite(fieldPresenceRadius) && fieldPresenceRadius > 0
+        ? fieldPresenceRadius
+        : compression * 0.8;
+
+    // SSU contributes a local interaction halo, but it may be much larger
+    // than the occupied body. Cap the halo against actual presence so a huge
+    // coherence radius does not frame mostly empty space.
+    const ssuHalo = Math.min(ssu * 0.5, Math.max(observedRadius * 0.25, 0.01));
+    const visualRadius = Math.max(
+        resolution,
+        (observedRadius + ssuHalo) * presentationScale + resolution * 0.8
+    );
+
+    const verticalFov = THREE.MathUtils.degToRad(
+        Math.max(10, Math.min(120, Number(engine.camera.fov) || 60))
+    );
+    const aspect = Math.max(0.1, Number(engine.camera.aspect) || 1);
+    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov * 0.5) * aspect);
+    const limitingFov = Math.min(verticalFov, horizontalFov);
+    const fitDistance = visualRadius / Math.max(0.05, Math.sin(limitingFov * 0.5));
+
+    // Modest breathing room keeps long tails from grazing the viewport while
+    // avoiding the "tiny object in a giant empty frame" failure mode.
+    return Math.max(2, fitDistance * 1.18);
+}
+
+function mapRadiusThroughScaleLens(radius, ssu, amount, subjectRadius) {
+    const safeRadius = Math.max(0, Number(radius) || 0);
+    const safeSsu = Math.max(0.001, Number(ssu) || 0.001);
+    const lensAmount = THREE.MathUtils.clamp(Number(amount) || 0, 0, 1);
+    if (lensAmount <= 0.000001) return safeRadius;
+
+    // CPU twin of scaleLensPosition's radial transform. Enhance must frame
+    // what the renderer actually shows, not only the pre-lens particle radius.
+    const q = safeRadius / safeSsu;
+    const subjectQ = Math.max(Math.abs(Number(subjectRadius) || 0) / safeSsu, 1);
+    const subjectNormalizedQ = q / subjectQ;
+    const lensFloor = Math.pow(10, -1 - 5 * lensAmount);
+    const logarithmicQ = Math.log(1 + subjectNormalizedQ / lensFloor)
+        / Math.log(1 + 1 / lensFloor);
+    const mappedQ = THREE.MathUtils.lerp(
+        q,
+        subjectQ * logarithmicQ,
+        lensAmount
+    );
+    return safeSsu * mappedQ;
+}
+
+function getEnhanceTargets(engine, fieldPresenceRadius) {
+    if (!engine || !engine.camera || !window.S) return null;
+    const S = window.S;
+    const coherence = Number.isFinite(Number(S.coherence)) ? Number(S.coherence) : 0;
+    const zeroWidth = Math.max(0.001, Math.abs(Number(S.zeroWidth) || 0.001));
+    const ssu = Math.sqrt(coherence * coherence + zeroWidth * zeroWidth);
+    const compression = Math.max(0.001, Math.abs(Number(S.inversion) || 30));
+    const scaleLens = THREE.MathUtils.clamp(Number(S.scaleLens) || 0, 0, 1);
+    const observedRadius = Number.isFinite(fieldPresenceRadius) && fieldPresenceRadius > 0
+        ? fieldPresenceRadius
+        : compression * 0.8;
+
+    const verticalFov = THREE.MathUtils.degToRad(
+        Math.max(10, Math.min(120, Number(engine.camera.fov) || 60))
+    );
+    const aspect = Math.max(0.1, Number(engine.camera.aspect) || 1);
+    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov * 0.5) * aspect);
+    const limitingFov = Math.min(verticalFov, horizontalFov);
+    const cameraDistance = Math.max(
+        2,
+        Number(engine.cam?.distTarget) || Number(engine.cam?.dist) || 52
+    );
+
+    // Occupy roughly two thirds of the limiting viewport dimension. SSU adds
+    // enough breathing room to reveal the active interaction shell, but is
+    // capped against the measured body so extreme coherence cannot collapse
+    // the subject into a dot.
+    const visibleWorldRadius = cameraDistance * Math.sin(limitingFov * 0.5);
+    const targetVisualRadius = Math.max(0.1, visibleWorldRadius * 0.66);
+    const ssuHalo = Math.min(ssu * 0.35, Math.max(observedRadius * 0.2, 0.01));
+    const renderedBodyRadius = mapRadiusThroughScaleLens(
+        observedRadius + ssuHalo,
+        ssu,
+        scaleLens,
+        compression
+    );
+    const presentationScale = THREE.MathUtils.clamp(
+        targetVisualRadius / Math.max(0.001, renderedBodyRadius),
+        0.001,
+        100
+    );
+
+    // Treat particle resolution as a screen-space sampling problem. The mean
+    // point diameter tracks projected inter-particle spacing: dense fields get
+    // finer quanta, sparse fields get larger marks without becoming confetti.
+    const minorViewport = Math.max(120, Math.min(window.innerWidth, window.innerHeight));
+    const projectedRadiusPx = minorViewport * 0.5 * 0.66;
+    const projectedAreaPx = Math.PI * projectedRadiusPx * projectedRadiusPx;
+    const activeParticles = Math.max(
+        1,
+        Math.min(engine.particleCount || 1_000_000, Math.round(Number(S.freeEnergy) || 1))
+    );
+    const meanSpacingPx = Math.sqrt(projectedAreaPx / activeParticles);
+    // A strong logarithmic lens spreads formerly packed fractional structure
+    // across the frame, so its visible marks need more—not less—support.
+    const lensSupport = 1 + scaleLens * 0.35;
+    const densityResolution = meanSpacingPx * 1.4 * lensSupport;
+    const currentResolution = Math.max(0.1, Math.abs(Number(S.resolution) || 0.1));
+    // One Enhance pass may refine the marks, but cannot erase them. This
+    // bounded correction keeps the tool useful without turning it into a
+    // repeated one-click march toward microscopic points.
+    const resolution = THREE.MathUtils.clamp(
+        densityResolution,
+        Math.max(0.1, currentResolution * 0.85),
+        Math.min(24, Math.max(0.1, currentResolution * 1.35))
+    );
+
+    return {
+        presentationScale: Number(presentationScale.toPrecision(4)),
+        resolution: Number(resolution.toPrecision(4)),
+        observedRadius,
+        renderedBodyRadius,
+        scaleLens,
+        ssu
+    };
 }
 
 // Homepoint: a sticky "favorite spot" in window.S.homepoint. Reachable via
@@ -965,12 +1124,28 @@ export function showDelModal(id, name) {
     ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
 }
 
-function startTransition(toP, toD, toQArr, toV, toPArr, dur = 5000) {
+function startTransition(
+    toP,
+    toD,
+    toQArr,
+    toV,
+    toPArr,
+    dur = 5000,
+    workflowOrigin = 'manual'
+) {
     const engine = window.engine;
     if (!engine) return;
 
     const targetParams = buildTargetParams(toP, toV);
     const targetMods = buildTargetMods(toV);
+    const changesSignal = Object.entries(targetParams).some(
+        ([key, value]) => isSignalWorkflowKey(key)
+            && Number(window.S[key]) !== Number(value)
+    ) || Object.entries(targetMods).some(
+        ([key, value]) => isSignalWorkflowKey(key)
+            && Number(window.S[key]) !== Number(value)
+    );
+    if (changesSignal) resetAnalysisWorkflow(workflowOrigin);
 
     const from = {
         params: {},
@@ -1710,6 +1885,62 @@ const spectralColor = Fn(([t]) => {
 });
 
 // Spectral palette — shared between particle material and ribbon compute
+// Render-only fractional-space lens. Positions are measured from the current
+// camera subject in Scale-Space Units, then remapped logarithmically while
+// keeping the subject center and current domain extent fixed. This opens tiny
+// fractional separations without losing the composed subject. At amount zero,
+// mappedQ=q and the function reduces to the original linear presentation path.
+const scaleLensPosition = Fn(([
+    p,
+    focus,
+    coherence,
+    zeroWidth,
+    amount,
+    subjectRadius,
+    presentationScale
+]) => {
+    const lensAmount = clamp(amount, 0.0, 1.0);
+    const safeZeroWidth = max(zeroWidth, 0.001);
+    const ssu = sqrt(add(
+        mul(coherence, coherence),
+        mul(safeZeroWidth, safeZeroWidth)
+    ));
+    const delta = sub(p, focus);
+    const radius = length(delta);
+    const q = div(radius, max(ssu, 0.001));
+    // Preserve the current subject/domain extent as a second landmark. A
+    // q=1-only logarithm is mathematically neat but can collapse a field
+    // spanning hundreds of SSU into a tiny dot. Anchoring the domain radius
+    // keeps the composed subject in frame while its fractional interior opens.
+    const subjectQ = max(div(abs(subjectRadius), max(ssu, 0.001)), 1.0);
+    const subjectNormalizedQ = div(q, subjectQ);
+    // The lens floor descends from 10^-1 to 10^-6 SSU as the control
+    // deepens, progressively revealing finer fractional neighborhoods.
+    const lensFloor = pow(10.0, sub(-1.0, mul(5.0, lensAmount)));
+    const logarithmicQ = div(
+        log(add(1.0, div(subjectNormalizedQ, lensFloor))),
+        log(add(1.0, div(1.0, lensFloor)))
+    );
+    const mappedQ = mix(q, mul(subjectQ, logarithmicQ), lensAmount);
+    const mappedRadius = mul(ssu, mappedQ);
+    const radialScale = div(mappedRadius, max(radius, 0.000000001));
+    const warpedPosition = add(focus, mul(delta, radialScale));
+    return mul(warpedPosition, presentationScale);
+});
+
+// Connection strips repeatedly need directions that may collapse to zero
+// after a strong nonlinear presentation transform. Shader normalize(0) is
+// undefined on some WebGPU backends, so keep the denominator finite and use
+// an explicit fallback direction.
+const safeDirection = Fn(([direction, fallback]) => {
+    const magnitude = length(direction);
+    return select(
+        magnitude.greaterThan(0.000001),
+        div(direction, max(magnitude, 0.000001)),
+        fallback
+    );
+});
+
 const specCore = Fn(([eBase]) => {
     const e = eBase.mod(1.0);
     const r = min(float(1.0), max(float(0.0), select(e.lessThan(0.5), mul(e, 0.4), add(0.2, mul(sub(e, 0.5), 1.6)))));
@@ -1996,14 +2227,48 @@ export class Engine {
         this.posStorage = new THREE.StorageBufferAttribute(posArray, 4);
         this.velStorage = new THREE.StorageBufferAttribute(velArray, 4);
         this.colStorage = new THREE.StorageBufferAttribute(colArray, 4);
+        // Read-only logarithmic neighborhood observable, one float per
+        // particle. Physics writes log2(nearest admitted distance / SSU)
+        // only while Log Scale color mode is selected; presentation reads it
+        // without feeding it back into force, phase, life, or position.
+        this.scaleObservationStorage = new THREE.StorageBufferAttribute(
+            new Float32Array(this.particleCount),
+            1
+        );
 
         this.geometry = new THREE.PlaneGeometry(1, 1);
 
         this.GRID_X = 64; this.GRID_Y = 64; this.GRID_Z = 64;
         this.GRID_TOTAL_CELLS = this.GRID_X * this.GRID_Y * this.GRID_Z;
         this.MAX_PER_CELL = 32;
+        // Pilot particles are deliberately rare metric routers. Their signal
+        // buffer is tiny (~1,000 vec4s at the million-particle ceiling) and
+        // stores only measured mean motion plus earned routing authority.
+        this.PILOT_STRIDE = 1024;
+        this.PILOT_COUNT = Math.ceil(this.particleCount / this.PILOT_STRIDE);
+        // Robust field-presence envelope. Sparse samples accumulate radius
+        // sums and counts across 32 shards; the CPU reads only these 256 bytes
+        // when Roll Dice needs to frame the current subject. Median shard
+        // means track the occupied body without obeying solitary escapees.
+        this.FIELD_EXTENT_SHARDS = 32;
+        this.FIELD_EXTENT_SAMPLE_STRIDE = 128;
+        this.FIELD_EXTENT_QUANTIZATION = 64;
         this.gridCountStorage = new THREE.StorageBufferAttribute(new Uint32Array(this.GRID_TOTAL_CELLS), 1);
         this.gridMemberStorage = new THREE.StorageBufferAttribute(new Uint32Array(this.GRID_TOTAL_CELLS * this.MAX_PER_CELL), 1);
+        this.pilotSignalStorage = new THREE.StorageBufferAttribute(new Float32Array(this.PILOT_COUNT * 4), 4);
+        // Analyze reuses the sparse pilot pass but never routes its result
+        // back into physics. Eight uints per pilot encode position, mean
+        // flow, authority, and nearest-neighbor scale. Atomic stores make
+        // this small metric buffer as reliably readable as fieldExtentStorage.
+        this.analysisSampleStorage = new THREE.StorageBufferAttribute(
+            new Uint32Array(this.PILOT_COUNT * 8),
+            1
+        );
+        this.fieldExtentStorage = new THREE.StorageBufferAttribute(
+            new Uint32Array(this.FIELD_EXTENT_SHARDS * 2),
+            1
+        );
+        this._lastFieldPresenceRadius = Math.max(0.001, Math.abs(sR) * 0.8);
     }
 
     resizeParticles(newCount) {
@@ -2029,6 +2294,9 @@ export class Engine {
         const posArray = this.posStorage.array;
         const velArray = this.velStorage.array;
         const colArray = this.colStorage?.array;
+        const scaleArray = this.scaleObservationStorage?.array;
+        const analysisArray = this.analysisSampleStorage?.array;
+        const fieldExtentArray = this.fieldExtentStorage?.array;
         const sR = window.S.inversion;
         for (let i = 0; i < this.particleCount; i++) {
             const th = Math.random() * Math.PI * 2;
@@ -2048,6 +2316,7 @@ export class Engine {
                 colArray[i * 4 + 2] = 0;
                 colArray[i * 4 + 3] = Math.random() * 2;
             }
+            if (scaleArray) scaleArray[i] = 0;
         }
         // Mark CPU-side arrays as dirty so the renderer re-uploads them.
         // For WebGPU StorageBufferAttribute, the renderer checks .version
@@ -2056,9 +2325,428 @@ export class Engine {
         this.posStorage.needsUpdate = true;
         this.velStorage.needsUpdate = true;
         if (this.colStorage) this.colStorage.needsUpdate = true;
+        if (this.scaleObservationStorage) this.scaleObservationStorage.needsUpdate = true;
+        if (analysisArray) {
+            analysisArray.fill(0);
+            this.analysisSampleStorage.needsUpdate = true;
+        }
+        if (fieldExtentArray) {
+            fieldExtentArray.fill(0);
+            this.fieldExtentStorage.needsUpdate = true;
+            this._lastFieldPresenceRadius = Math.max(0.001, Math.abs(sR) * 0.8);
+        }
         if (typeof this.posStorage.version === 'number') this.posStorage.version++;
         if (typeof this.velStorage.version === 'number') this.velStorage.version++;
         if (this.colStorage && typeof this.colStorage.version === 'number') this.colStorage.version++;
+        if (
+            this.scaleObservationStorage &&
+            typeof this.scaleObservationStorage.version === 'number'
+        ) {
+            this.scaleObservationStorage.version++;
+        }
+        if (
+            this.analysisSampleStorage &&
+            typeof this.analysisSampleStorage.version === 'number'
+        ) {
+            this.analysisSampleStorage.version++;
+        }
+        if (
+            this.fieldExtentStorage &&
+            typeof this.fieldExtentStorage.version === 'number'
+        ) {
+            this.fieldExtentStorage.version++;
+        }
+    }
+
+    async readFieldPresenceRadius() {
+        const fallback = Math.max(
+            0.001,
+            Number(this._lastFieldPresenceRadius) || Math.abs(Number(window.S.inversion) || 30) * 0.8
+        );
+        if (!this.renderer || !this.fieldExtentStorage) return fallback;
+        try {
+            const raw = await this.renderer.getArrayBufferAsync(this.fieldExtentStorage);
+            const packed = new Uint32Array(raw);
+            const shardMeans = [];
+            for (let shard = 0; shard < this.FIELD_EXTENT_SHARDS; shard++) {
+                const count = packed[this.FIELD_EXTENT_SHARDS + shard];
+                if (count === 0) continue;
+                shardMeans.push(
+                    packed[shard] / count / this.FIELD_EXTENT_QUANTIZATION
+                );
+            }
+            shardMeans.sort((a, b) => a - b);
+            if (shardMeans.length === 0) return fallback;
+            // Uniform volume has mean radius 3/4 of its outer body. Restoring
+            // that factor keeps the coherent subject comfortably in view
+            // without fitting every sparse tail or escaped particle.
+            const radius = shardMeans[Math.floor((shardMeans.length - 1) * 0.5)] * (4 / 3);
+            if (!Number.isFinite(radius) || radius <= 0) return fallback;
+            this._lastFieldPresenceRadius = radius;
+            return radius;
+        } catch (error) {
+            console.warn('Field presence readback unavailable; using the last envelope.', error);
+            return fallback;
+        }
+    }
+
+    async readCoherenceAnalysis() {
+        if (!this.renderer || !this.analysisSampleStorage) {
+            return null;
+        }
+        try {
+            const sampleRaw = await this.renderer.getArrayBufferAsync(
+                this.analysisSampleStorage
+            );
+            const samples = new Uint32Array(sampleRaw);
+            const activePilots = Math.min(
+                this.PILOT_COUNT,
+                Math.ceil(
+                    Math.max(0, Number(window.S.freeEnergy) || 0)
+                    / this.PILOT_STRIDE
+                )
+            );
+            const candidates = [];
+            let signalCount = 0;
+            let positionCount = 0;
+            let maxAuthority = 0;
+            for (let i = 0; i < activePilots; i++) {
+                const o = i * 8;
+                const authority = samples[o + 6] / 65535;
+                const scaleOctave = samples[o + 7] / 65535 * 16 - 12;
+                const px = samples[o] / 64 - 16000;
+                const py = samples[o + 1] / 64 - 16000;
+                const pz = samples[o + 2] / 64 - 16000;
+                const vx = samples[o + 3] / 512 - 64;
+                const vy = samples[o + 4] / 512 - 64;
+                const vz = samples[o + 5] / 512 - 64;
+                if (Number.isFinite(authority) && authority > 0.000001) signalCount++;
+                if (
+                    authority > 0.000001
+                    &&
+                    Number.isFinite(px)
+                    && Number.isFinite(py)
+                    && Number.isFinite(pz)
+                    && (
+                        Math.abs(px)
+                        + Math.abs(py)
+                        + Math.abs(pz)
+                    ) > 0.000001
+                ) positionCount++;
+                if (Number.isFinite(authority)) maxAuthority = Math.max(maxAuthority, authority);
+                if (
+                    !Number.isFinite(authority)
+                    || authority <= 0.000001
+                    || !Number.isFinite(scaleOctave)
+                ) continue;
+                candidates.push({
+                    position: new THREE.Vector3(px, py, pz),
+                    velocity: new THREE.Vector3(vx, vy, vz),
+                    authority: THREE.MathUtils.clamp(authority, 0, 1),
+                    scaleOctave: THREE.MathUtils.clamp(scaleOctave, -12, 4)
+                });
+            }
+            if (candidates.length < 3) {
+                return {
+                    empty: true,
+                    activePilots,
+                    candidateCount: candidates.length,
+                    signalCount,
+                    positionCount,
+                    maxAuthority
+                };
+            }
+
+            // A path is inferred from the strongest fifth of the sensors.
+            // Authority is already a compound Scale Space signal:
+            // occupancy × phase order × vitality × coherence activity.
+            candidates.sort((a, b) => b.authority - a.authority);
+            const pathCount = Math.max(3, Math.ceil(candidates.length * 0.2));
+            const path = candidates.slice(0, pathCount);
+            const authorityFloor = path[path.length - 1].authority;
+            const weightSum = path.reduce((sum, p) => sum + p.authority, 0);
+            const centroid = new THREE.Vector3();
+            const meanFlow = new THREE.Vector3();
+            for (const p of path) {
+                centroid.addScaledVector(p.position, p.authority);
+                meanFlow.addScaledVector(p.velocity, p.authority);
+            }
+            centroid.multiplyScalar(1 / Math.max(0.000001, weightSum));
+            meanFlow.multiplyScalar(1 / Math.max(0.000001, weightSum));
+
+            // Weighted principal-axis iteration turns the strongest sensor
+            // cloud into a corridor. Mean flow supplies the initial guess, so
+            // a sweeping filament wins over a merely broad dense patch.
+            const covariance = new THREE.Matrix3().set(0, 0, 0, 0, 0, 0, 0, 0, 0);
+            const ce = covariance.elements;
+            for (const p of path) {
+                const d = p.position.clone().sub(centroid);
+                const w = p.authority;
+                ce[0] += w * d.x * d.x;
+                ce[3] += w * d.x * d.y;
+                ce[6] += w * d.x * d.z;
+                ce[1] += w * d.y * d.x;
+                ce[4] += w * d.y * d.y;
+                ce[7] += w * d.y * d.z;
+                ce[2] += w * d.z * d.x;
+                ce[5] += w * d.z * d.y;
+                ce[8] += w * d.z * d.z;
+            }
+            let axis = meanFlow.lengthSq() > 0.000001
+                ? meanFlow.clone().normalize()
+                : new THREE.Vector3(1, 0, 0);
+            for (let i = 0; i < 8; i++) {
+                axis.applyMatrix3(covariance);
+                if (axis.lengthSq() <= 0.000001) {
+                    axis.set(1, 0, 0);
+                    break;
+                }
+                axis.normalize();
+            }
+
+            let minProjection = Infinity;
+            let maxProjection = -Infinity;
+            let flowAlignment = 0;
+            const orderedScales = path
+                .slice()
+                .sort((a, b) => a.scaleOctave - b.scaleOctave);
+            for (const p of path) {
+                const projection = p.position.clone().sub(centroid).dot(axis);
+                minProjection = Math.min(minProjection, projection);
+                maxProjection = Math.max(maxProjection, projection);
+                if (p.velocity.lengthSq() > 0.000001) {
+                    flowAlignment += Math.abs(
+                        p.velocity.clone().normalize().dot(axis)
+                    ) * p.authority;
+                }
+            }
+            let accumulatedScaleWeight = 0;
+            let dominantScaleOctave = orderedScales[orderedScales.length - 1].scaleOctave;
+            for (const p of orderedScales) {
+                accumulatedScaleWeight += p.authority;
+                if (accumulatedScaleWeight >= weightSum * 0.5) {
+                    dominantScaleOctave = p.scaleOctave;
+                    break;
+                }
+            }
+            const coherenceScore = path.reduce(
+                (sum, p) => sum + p.authority,
+                0
+            ) / path.length;
+            const coherence = Number(window.S.coherence) || 0;
+            const zeroWidth = Math.max(0.001, Number(window.S.zeroWidth) || 0.001);
+            const ssu = Math.sqrt(coherence * coherence + zeroWidth * zeroWidth);
+            const rawSpan = Math.max(0.001, maxProjection - minProjection);
+            const spanSsu = rawSpan / Math.max(0.001, ssu);
+            const coherenceActivity = coherence * coherence
+                / Math.max(0.000001, coherence * coherence + zeroWidth * zeroWidth);
+
+            // A tiny spatial spectrum, not an audio FFT. Project the coherent
+            // corridor onto its principal axis, divide it into 32 bins, and
+            // analyze authority-weighted longitudinal flow plus a restrained
+            // occupancy term. Direct DFT is cheaper and clearer at this size
+            // than introducing a general FFT dependency.
+            const spectrumBins = 32;
+            const signalSums = new Float64Array(spectrumBins);
+            const binWeights = new Float64Array(spectrumBins);
+            let weightedFlowEnergy = 0;
+            for (const p of path) {
+                const projection = p.position.clone().sub(centroid).dot(axis);
+                const u = THREE.MathUtils.clamp(
+                    (projection - minProjection) / rawSpan,
+                    0,
+                    0.999999
+                );
+                const bin = Math.min(spectrumBins - 1, Math.floor(u * spectrumBins));
+                const longitudinalFlow = p.velocity.dot(axis);
+                signalSums[bin] += longitudinalFlow * p.authority;
+                binWeights[bin] += p.authority;
+                weightedFlowEnergy += longitudinalFlow * longitudinalFlow * p.authority;
+            }
+            const flowScale = Math.max(
+                0.001,
+                Math.sqrt(weightedFlowEnergy / Math.max(0.000001, weightSum))
+            );
+            const meanBinWeight = weightSum / spectrumBins;
+            const spatialSignal = new Float64Array(spectrumBins);
+            for (let i = 0; i < spectrumBins; i++) {
+                const localFlow = binWeights[i] > 0
+                    ? signalSums[i] / binWeights[i]
+                    : 0;
+                const occupancy = binWeights[i] / Math.max(0.000001, meanBinWeight) - 1;
+                spatialSignal[i] = localFlow + occupancy * flowScale * 0.25;
+            }
+            const signalMean = spatialSignal.reduce((sum, value) => sum + value, 0)
+                / spectrumBins;
+            const powers = [];
+            for (let k = 1; k <= spectrumBins / 2; k++) {
+                let real = 0;
+                let imaginary = 0;
+                for (let n = 0; n < spectrumBins; n++) {
+                    const hann = 0.5 - 0.5 * Math.cos(
+                        Math.PI * 2 * n / (spectrumBins - 1)
+                    );
+                    const value = (spatialSignal[n] - signalMean) * hann;
+                    const angle = Math.PI * 2 * k * n / spectrumBins;
+                    real += value * Math.cos(angle);
+                    imaginary -= value * Math.sin(angle);
+                }
+                powers.push((real * real + imaginary * imaginary) / spectrumBins);
+            }
+            const powerSum = powers.reduce((sum, value) => sum + value, 0);
+            let dominantIndex = 0;
+            for (let i = 1; i < powers.length; i++) {
+                if (powers[i] > powers[dominantIndex]) dominantIndex = i;
+            }
+            const dominantMode = dominantIndex + 1;
+            const dominantPower = powers[dominantIndex] || 0;
+            const spectralConcentration = powerSum > 0
+                ? dominantPower / powerSum
+                : 0;
+            const spectralCentroid = powerSum > 0
+                ? powers.reduce((sum, value, i) => sum + (i + 1) * value, 0) / powerSum
+                : 0;
+            const epsilon = Math.max(1e-12, powerSum * 1e-12);
+            const arithmeticPower = powerSum / Math.max(1, powers.length);
+            const geometricPower = Math.exp(
+                powers.reduce((sum, value) => sum + Math.log(value + epsilon), 0)
+                / Math.max(1, powers.length)
+            );
+            const spectralFlatness = arithmeticPower > 0
+                ? THREE.MathUtils.clamp(geometricPower / arithmeticPower, 0, 1)
+                : 0;
+            const harmonicIndex = dominantMode * 2 - 1;
+            const harmonicity = harmonicIndex < powers.length && dominantPower > 0
+                ? THREE.MathUtils.clamp(powers[harmonicIndex] / dominantPower, 0, 1)
+                : 0;
+            let signalClass = 'band-limited filament signal';
+            if (powerSum <= 1e-10) {
+                signalClass = 'spectrally quiet corridor';
+            } else if (spectralFlatness > 0.65) {
+                signalClass = 'broadband turbulent texture';
+            } else if (dominantMode <= 2 && spectralConcentration > 0.4) {
+                signalClass = 'fundamental standing envelope';
+            } else if (harmonicity > 0.35) {
+                signalClass = 'harmonic ladder';
+            } else if (spectralCentroid < 4) {
+                signalClass = 'low-mode coherent sweep';
+            } else if (dominantMode >= 8) {
+                signalClass = 'fine-grain ripple field';
+            }
+            const spanScore = THREE.MathUtils.clamp(
+                Math.log2(1 + Math.max(0, spanSsu)) / 4,
+                0,
+                1
+            );
+            const discoveryScore = Math.round(
+                1000
+                * Math.sqrt(
+                    THREE.MathUtils.clamp(coherenceScore, 0, 1)
+                    * THREE.MathUtils.clamp(coherenceActivity, 0, 1)
+                )
+                * (0.45 + 0.55 * spanScore)
+                * (0.65 + 0.35 * spectralConcentration)
+            );
+            return {
+                centroid,
+                axis,
+                meanFlow,
+                coherenceScore,
+                authorityFloor,
+                dominantScaleOctave,
+                dominantScaleRatio: Math.pow(2, dominantScaleOctave),
+                spanSsu,
+                flowAlignment: flowAlignment / Math.max(0.000001, weightSum),
+                sensorCount: candidates.length,
+                pathCount: path.length,
+                ssu,
+                coherence,
+                coherenceActivity,
+                spectrum: {
+                    bins: spectrumBins,
+                    dominantMode,
+                    dominantWavelengthSsu: spanSsu / Math.max(1, dominantMode),
+                    spectralCentroid,
+                    spectralConcentration,
+                    spectralFlatness,
+                    harmonicity,
+                    spatialSignal,
+                    signalClass,
+                    powers
+                },
+                discoveryScore
+            };
+        } catch (error) {
+            console.warn('Coherence analysis readback unavailable.', error);
+            return null;
+        }
+    }
+
+    async captureCoherenceAnalysis(attempts = 3) {
+        if (
+            !this.renderer
+            || !this.computeClearNode
+            || !this.computeAssignNode
+            || !this.computePilotNode
+        ) return null;
+        if (this._analysisCapturePromise) return this._analysisCapturePromise;
+
+        const passCount = Math.max(1, Math.min(5, Math.round(attempts) || 1));
+        this._analysisCaptureInFlight = true;
+        this._analysisActive = true;
+        this.updateUniforms();
+        this._analysisCapturePromise = (async () => {
+            const validResults = [];
+            const emptyResults = [];
+            try {
+                // The cell reservoir is intentionally unbiased, so one sparse
+                // pass is not a trustworthy absence test. Hold particle state
+                // still and take a tiny ensemble of independent read-only
+                // metric passes. The median valid pass resists both misses and
+                // unusually lucky samples without manufacturing a signal.
+                for (let pass = 0; pass < passCount; pass++) {
+                    await this.renderer.computeAsync([
+                        this.computeClearNode,
+                        this.computeAssignNode,
+                        this.computePilotNode
+                    ]);
+                    const result = await this.readCoherenceAnalysis();
+                    if (result && !result.empty && result.spectrum) {
+                        validResults.push(result);
+                    } else if (result) {
+                        emptyResults.push(result);
+                    }
+                }
+                if (validResults.length > 0) {
+                    validResults.sort(
+                        (a, b) => (Number(a.discoveryScore) || 0)
+                            - (Number(b.discoveryScore) || 0)
+                    );
+                    const result = validResults[Math.floor(validResults.length / 2)];
+                    result.captureAttempts = passCount;
+                    result.validCaptureAttempts = validResults.length;
+                    return result;
+                }
+                if (emptyResults.length > 0) {
+                    emptyResults.sort(
+                        (a, b) => (Number(b.candidateCount) || 0)
+                            - (Number(a.candidateCount) || 0)
+                    );
+                    const result = emptyResults[0];
+                    result.captureAttempts = passCount;
+                    result.validCaptureAttempts = 0;
+                    return result;
+                }
+                return null;
+            } catch (error) {
+                console.warn('Coherence analysis capture unavailable.', error);
+                return null;
+            } finally {
+                this._analysisCaptureInFlight = false;
+                this._analysisCapturePromise = null;
+            }
+        })();
+        return this._analysisCapturePromise;
     }
 
     setupCompute() {
@@ -2070,6 +2758,11 @@ export class Engine {
             viscosity: uniform(window.S.viscosity),
             responseMemory: uniform(window.S.responseMemory ?? 0.0),
             speciesCompetition: uniform(window.S.speciesCompetition ?? 0.0),
+            schooling: uniform(window.S.schooling ?? 0.0),
+            speciesAgency: uniform(window.S.speciesAgency ?? 0.0),
+            pilot: uniform(window.S.pilot ?? 0.0),
+            analysisActive: uniform(0.0),
+            predation: uniform(window.S.predation ?? 0.0),
             speciesFamilies: uniform(window.S.speciesFamilies ?? 3.0),
             phaseLens: uniform(window.S.phaseLens ?? 0.0),
             frequencyFamilies: uniform(window.S.frequencyFamilies ?? 1.0),
@@ -2087,7 +2780,11 @@ export class Engine {
             zeroWidth: uniform(window.S.zeroWidth ?? 0.1),
             homePull: uniform(window.S.homePull ?? 1.0),
             worldBoundary: uniform(window.S.worldBoundary ?? 0.0),
+            projectionNozzle: uniform(window.S.projectionNozzle ?? 1.0),
             presentationScale: uniform(window.S.presentationScale ?? 1.0),
+            scaleLens: uniform(window.S.scaleLens ?? 0.0),
+            cloudLod: uniform(window.S.cloudLod ?? 0.0),
+            lensFocus: uniform(new THREE.Vector3(0, 0, 0)),
             massFamilies: uniform(window.S.massFamilies ?? 1.0),
             massRange: uniform(window.S.massRange ?? 0.0),
             tempo: uniform(window.S.tempo),
@@ -2123,38 +2820,254 @@ export class Engine {
         const coherenceActivity = div(coherenceSq, add(coherenceSq, coherenceEpsilonSq));
         const coherenceOrientation = div(this.uniforms.coherence, safeCoherence);
         const signedCoherenceActivity = mul(coherenceActivity, coherenceOrientation);
-        const gridCellWidth = max(safeCoherence, 1.0);
+        // The hash lattice follows the actual regularized coherence radius.
+        // The former one-world-unit floor made every fractional coherence
+        // value share the same coarse buckets, so a 0.001 interaction had to
+        // find its neighbors among arbitrary occupants of a cell one billion
+        // times larger by volume. safeCoherence already has a 0.001 floor,
+        // keeping division finite without discarding fractional resolution.
+        const gridCellWidth = safeCoherence;
 
         const getCellIndex = Fn(([p]) => {
             const cx = int(floor(div(p.x, gridCellWidth)));
             const cy = int(floor(div(p.y, gridCellWidth)));
             const cz = int(floor(div(p.z, gridCellWidth)));
-            const wx = uint(bitAnd(add(cx, int(10240)), int(63)));
-            const wy = uint(bitAnd(add(cy, int(10240)), int(63)));
-            const wz = uint(bitAnd(add(cz, int(10240)), int(63)));
-            return add(wx, add(mul(wy, uint(64)), mul(wz, uint(4096))));
+            // Prime-mixed infinite lattice hash. The original independent
+            // 64-axis wrapping repeated the same bucket every 64 cells; at
+            // fractional coherence, distant coordinates therefore collided
+            // systematically. Mixing all three signed coordinates disperses
+            // those aliases across the full 2^18 bucket table.
+            const ux = uint(add(cx, int(16777216)));
+            const uy = uint(add(cy, int(16777216)));
+            const uz = uint(add(cz, int(16777216)));
+            const hash = bitXor(
+                bitXor(
+                    mul(ux, uint(73856093)),
+                    mul(uy, uint(19349663))
+                ),
+                mul(uz, uint(83492791))
+            );
+            return bitAnd(hash, uint(this.GRID_TOTAL_CELLS - 1));
         });
 
         const computeClearGrid = Fn(() => {
             const countBuf = storage(this.gridCountStorage, 'uint', this.GRID_TOTAL_CELLS).toAtomic();
             atomicStore(countBuf.element(instanceIndex), uint(0));
+            If(instanceIndex.lessThan(uint(this.FIELD_EXTENT_SHARDS * 2)), () => {
+                const extentBuf = storage(
+                    this.fieldExtentStorage,
+                    'uint',
+                    this.FIELD_EXTENT_SHARDS * 2
+                ).toAtomic();
+                atomicStore(extentBuf.element(instanceIndex), uint(0));
+            });
         });
 
         const computeAssignGrid = Fn(() => {
             If(instanceIndex.lessThan(this.uniforms.activeParticleCount), () => {
                 const pBuf = storage(this.posStorage, 'vec4', this.particleCount);
                 const countBuf = storage(this.gridCountStorage, 'uint', this.GRID_TOTAL_CELLS).toAtomic();
-                const memberBuf = storage(this.gridMemberStorage, 'uint', this.GRID_TOTAL_CELLS * this.MAX_PER_CELL);
+                const memberBuf = storage(
+                    this.gridMemberStorage,
+                    'uint',
+                    this.GRID_TOTAL_CELLS * this.MAX_PER_CELL
+                ).toAtomic();
 
                 const pNode = pBuf.element(instanceIndex).xyz;
                 const cellIdx = getCellIndex(pNode);
                 const offset = atomicAdd(countBuf.element(cellIdx), uint(1));
 
-                If(offset.lessThan(uint(this.MAX_PER_CELL)), () => {
-                    const memberIdx = add(mul(cellIdx, uint(this.MAX_PER_CELL)), offset);
-                    memberBuf.element(memberIdx).assign(uint(instanceIndex));
+                // Streaming reservoir sample. The former path permanently
+                // retained only the first 32 arrivals in a crowded cell,
+                // making neighborhood identity depend on dispatch order.
+                // The first 32 fill every slot; each later arrival draws a
+                // uniform index from the stream seen so far and replaces a
+                // retained slot only when that draw lands inside the sample.
+                // Member writes are atomic because overflow replacements can
+                // target the same slot from different workgroups.
+                const retainedSlot = offset.toVar();
+                If(offset.greaterThanEqual(uint(this.MAX_PER_CELL)), () => {
+                    const streamLength = add(offset, uint(1));
+                    const reservoirWord = bitXor(
+                        bitXor(
+                            mul(add(uint(instanceIndex), uint(1)), uint(747796405)),
+                            mul(add(cellIdx, uint(1)), uint(2891336453))
+                        ),
+                        mul(add(offset, uint(1)), uint(277803737))
+                    );
+                    const scrambledWord = bitXor(
+                        reservoirWord,
+                        div(reservoirWord, uint(65536))
+                    );
+                    retainedSlot.assign(mod(scrambledWord, streamLength));
+                });
+                If(retainedSlot.lessThan(uint(this.MAX_PER_CELL)), () => {
+                    const memberIdx = add(
+                        mul(cellIdx, uint(this.MAX_PER_CELL)),
+                        retainedSlot
+                    );
+                    atomicStore(memberBuf.element(memberIdx), uint(instanceIndex));
                 });
             });
+        });
+
+        // Metric-only pilot pass. One reserved particle in every 1024 reads
+        // the existing 32-member spatial cell, measures its tissue, and
+        // publishes a bounded consensus signal. It does not move neighbors,
+        // change health, or write particle state. The following physics pass
+        // decides whether nearby particles accept and propagate the signal.
+        const computePilots = Fn(() => {
+            const pilotSignalBuf = storage(this.pilotSignalStorage, 'vec4', this.PILOT_COUNT);
+            const analysisMetricBuf = storage(
+                this.analysisSampleStorage,
+                'uint',
+                this.PILOT_COUNT * 8
+            ).toAtomic();
+            const signalNode = pilotSignalBuf.element(instanceIndex);
+            signalNode.assign(vec4(0.0));
+            const analysisBase = mul(uint(instanceIndex), uint(8));
+            If(this.uniforms.analysisActive.greaterThan(0.000001), () => {
+                atomicStore(analysisMetricBuf.element(add(analysisBase, uint(0))), uint(0));
+                atomicStore(analysisMetricBuf.element(add(analysisBase, uint(1))), uint(0));
+                atomicStore(analysisMetricBuf.element(add(analysisBase, uint(2))), uint(0));
+                atomicStore(analysisMetricBuf.element(add(analysisBase, uint(3))), uint(0));
+                atomicStore(analysisMetricBuf.element(add(analysisBase, uint(4))), uint(0));
+                atomicStore(analysisMetricBuf.element(add(analysisBase, uint(5))), uint(0));
+                atomicStore(analysisMetricBuf.element(add(analysisBase, uint(6))), uint(0));
+                atomicStore(analysisMetricBuf.element(add(analysisBase, uint(7))), uint(0));
+            });
+
+            const pilotParticleId = mul(uint(instanceIndex), uint(this.PILOT_STRIDE));
+            const metricRequested = this.uniforms.pilot.greaterThan(0.000001)
+                .or(this.uniforms.analysisActive.greaterThan(0.000001));
+            If(
+                pilotParticleId.lessThan(this.uniforms.activeParticleCount)
+                    .and(metricRequested),
+                () => {
+                    const pBuf = storage(this.posStorage, 'vec4', this.particleCount);
+                    const vBuf = storage(this.velStorage, 'vec4', this.particleCount);
+                    const identityBuf = storage(this.colStorage, 'vec4', this.particleCount);
+                    const countBuf = storage(this.gridCountStorage, 'uint', this.GRID_TOTAL_CELLS);
+                    const memberBuf = storage(this.gridMemberStorage, 'uint', this.GRID_TOTAL_CELLS * this.MAX_PER_CELL);
+
+                    const pilotPosition = pBuf.element(pilotParticleId).xyz;
+                    const pilotCellIdx = getCellIndex(pilotPosition);
+                    const sampleCount = min(
+                        countBuf.element(pilotCellIdx),
+                        uint(this.MAX_PER_CELL)
+                    );
+                    const velocitySum = vec3(0.0).toVar();
+                    const phaseCosSum = float(0.0).toVar();
+                    const phaseSinSum = float(0.0).toVar();
+                    const vitalitySum = float(0.0).toVar();
+                    const nearestPilotScaleRatio = float(65536.0).toVar();
+
+                    Loop({ start: uint(0), end: sampleCount, type: 'uint', condition: '<' }, ({ i }) => {
+                        const memberIdx = add(
+                            mul(pilotCellIdx, uint(this.MAX_PER_CELL)),
+                            i
+                        );
+                        const memberId = memberBuf.element(memberIdx);
+                        const memberVelocity = vBuf.element(memberId);
+                        const memberPhase = identityBuf.element(memberId).w;
+                        const phaseAngle = mul(fract(memberPhase), Math.PI * 2.0);
+                        velocitySum.addAssign(memberVelocity.xyz);
+                        phaseCosSum.addAssign(cos(phaseAngle));
+                        phaseSinSum.addAssign(sin(phaseAngle));
+                        vitalitySum.addAssign(clamp(memberVelocity.w, 0.0, 1.0));
+                        If(memberId.notEqual(pilotParticleId), () => {
+                            const memberPosition = pBuf.element(memberId).xyz;
+                            const pilotDelta = sub(memberPosition, pilotPosition);
+                            const pilotDistanceSq = dot(pilotDelta, pilotDelta);
+                            If(pilotDistanceSq.greaterThan(0.000000000001), () => {
+                                nearestPilotScaleRatio.assign(
+                                    min(
+                                        nearestPilotScaleRatio,
+                                        div(sqrt(pilotDistanceSq), safeCoherence)
+                                    )
+                                );
+                            });
+                        });
+                    });
+
+                    const sampleWeight = max(float(sampleCount), 1.0);
+                    const meanVelocity = div(velocitySum, sampleWeight);
+                    const phaseOrder = div(
+                        length(vec2(phaseCosSum, phaseSinSum)),
+                        sampleWeight
+                    );
+                    const localDensity = clamp(div(float(sampleCount), 8.0), 0.0, 1.0);
+                    const meanVitality = div(vitalitySum, sampleWeight);
+                    const signalIntegrity = mix(
+                        1.0,
+                        meanVitality,
+                        clamp(this.uniforms.predation, 0.0, 1.0)
+                    );
+                    const earnedAuthority = mul(
+                        localDensity,
+                        mul(
+                            add(0.25, mul(0.75, phaseOrder)),
+                            mul(
+                                signalIntegrity,
+                                coherenceActivity
+                            )
+                        )
+                    );
+                    signalNode.assign(vec4(meanVelocity, earnedAuthority));
+                    If(this.uniforms.analysisActive.greaterThan(0.000001), () => {
+                        atomicStore(
+                            analysisMetricBuf.element(add(analysisBase, uint(0))),
+                            uint(mul(add(clamp(pilotPosition.x, -16000.0, 16000.0), 16000.0), 64.0))
+                        );
+                        atomicStore(
+                            analysisMetricBuf.element(add(analysisBase, uint(1))),
+                            uint(mul(add(clamp(pilotPosition.y, -16000.0, 16000.0), 16000.0), 64.0))
+                        );
+                        atomicStore(
+                            analysisMetricBuf.element(add(analysisBase, uint(2))),
+                            uint(mul(add(clamp(pilotPosition.z, -16000.0, 16000.0), 16000.0), 64.0))
+                        );
+                        atomicStore(
+                            analysisMetricBuf.element(add(analysisBase, uint(3))),
+                            uint(mul(add(clamp(meanVelocity.x, -64.0, 64.0), 64.0), 512.0))
+                        );
+                        atomicStore(
+                            analysisMetricBuf.element(add(analysisBase, uint(4))),
+                            uint(mul(add(clamp(meanVelocity.y, -64.0, 64.0), 64.0), 512.0))
+                        );
+                        atomicStore(
+                            analysisMetricBuf.element(add(analysisBase, uint(5))),
+                            uint(mul(add(clamp(meanVelocity.z, -64.0, 64.0), 64.0), 512.0))
+                        );
+                        atomicStore(
+                            analysisMetricBuf.element(add(analysisBase, uint(6))),
+                            uint(mul(clamp(earnedAuthority, 0.0, 1.0), 65535.0))
+                        );
+                        const hasPilotNeighbor = nearestPilotScaleRatio.lessThan(65535.0);
+                        const pilotLogScale = select(
+                            hasPilotNeighbor,
+                            div(
+                                log(max(nearestPilotScaleRatio, 0.000001)),
+                                Math.LN2
+                            ),
+                            4.0
+                        );
+                        const encodedPilotScale = uint(
+                            mul(
+                                div(
+                                    add(clamp(pilotLogScale, -12.0, 4.0), 12.0),
+                                    16.0
+                                ),
+                                65535.0
+                            )
+                        );
+                        atomicStore(
+                            analysisMetricBuf.element(add(analysisBase, uint(7))),
+                            encodedPilotScale
+                        );
+                    });
+                }
+            );
         });
 
         const computePhysics = Fn(() => {
@@ -2164,10 +3077,22 @@ export class Engine {
                 const identityBuf = storage(this.colStorage, 'vec4', this.particleCount);
                 const countBuf = storage(this.gridCountStorage, 'uint', this.GRID_TOTAL_CELLS);
                 const memberBuf = storage(this.gridMemberStorage, 'uint', this.GRID_TOTAL_CELLS * this.MAX_PER_CELL);
+                const pilotSignalBuf = storage(this.pilotSignalStorage, 'vec4', this.PILOT_COUNT);
+                const scaleObservationBuf = storage(
+                    this.scaleObservationStorage,
+                    'float',
+                    this.particleCount
+                );
+                const fieldExtentBuf = storage(
+                    this.fieldExtentStorage,
+                    'uint',
+                    this.FIELD_EXTENT_SHARDS * 2
+                ).toAtomic();
 
                 const pNode = pBuf.element(instanceIndex);
                 const vNode = vBuf.element(instanceIndex);
                 const phaseNode = identityBuf.element(instanceIndex);
+                const scaleObservationNode = scaleObservationBuf.element(instanceIndex);
 
                 let p = pNode.xyz;
                 let v = vNode.xyz;
@@ -2189,20 +3114,46 @@ export class Engine {
                 const inversionAmount = clamp(this.uniforms.spatialInversion, 0.0, 1.0);
                 const competitionAmount = clamp(this.uniforms.speciesCompetition, 0.0, 1.0);
                 const competitionActive = competitionAmount.greaterThan(0.000001);
+                const schoolingAmount = clamp(this.uniforms.schooling, 0.0, 1.0);
+                const schoolingActive = schoolingAmount.greaterThan(0.000001);
+                const agencyAmount = clamp(this.uniforms.speciesAgency, 0.0, 1.0);
+                const agencyActive = agencyAmount.greaterThan(0.000001);
+                const pilotAmount = clamp(this.uniforms.pilot, 0.0, 1.0);
+                const pilotActive = pilotAmount.greaterThan(0.000001);
+                const predationAmount = clamp(this.uniforms.predation, 0.0, 1.0);
+                const predationActive = predationAmount.greaterThan(0.000001);
+                const selfVitality = clamp(vNode.w, 0.0, 1.0);
+                // In Scale Space, vitality is signal integrity. It does not
+                // turn basic motion on or off; it controls how completely a
+                // particle can participate in phase-shaped relationships.
+                // Predation zero preserves full signal integrity exactly.
+                const selfSignalIntegrity = mix(
+                    1.0,
+                    selfVitality,
+                    predationAmount
+                );
                 const exclusionAmount = clamp(this.uniforms.exclusion, 0.0, 1.0);
                 const exclusionActive = exclusionAmount.greaterThan(0.000001);
+                const lens = clamp(this.uniforms.phaseLens, -1.0, 1.0);
                 const phaseCouplingAmount = clamp(this.uniforms.phaseCoupling, -1.0, 1.0);
                 const phaseForceAmount = clamp(this.uniforms.phaseForce, 0.0, 1.0);
                 const spinorAmount = clamp(this.uniforms.spinor, 0.0, 1.0);
                 const phaseCouplingActive = abs(phaseCouplingAmount).greaterThan(0.000001);
                 const phaseForceActive = phaseForceAmount.greaterThan(0.000001);
-                const phaseNeighborActive = phaseCouplingActive.or(phaseForceActive);
-                const particlePhaseActive = phaseNeighborActive.or(spinorAmount.greaterThan(0.000001));
+                const phaseNeighborActive = phaseCouplingActive.or(phaseForceActive).or(schoolingActive);
+                const particlePhaseActive = phaseNeighborActive
+                    .or(spinorAmount.greaterThan(0.000001))
+                    .or(agencyActive)
+                    .or(pilotActive);
+                const scaleObserveActive = this.uniforms.colorMode.equal(5)
+                    .or(this.uniforms.analysisActive.greaterThan(0.000001));
                 const originalPairPath = this.uniforms.pairPathGate.lessThan(0.5);
                 const pairForceActive = originalPairPath.or(
                     this.uniforms.scaleDepth.greaterThan(0.001)
                         .or(inversionAmount.greaterThan(0.001))
                         .or(competitionActive)
+                        .or(schoolingActive)
+                        .or(predationActive)
                         .or(exclusionActive)
                 );
                 const momentumActive = originalPairPath.or(abs(this.uniforms.momentumCoupling).greaterThan(0.000001));
@@ -2215,6 +3166,11 @@ export class Engine {
                 const deadZoneRadius = mix(1.0, relativeDeadZone, inversionAmount);
                 const deadZoneSq = mul(deadZoneRadius, deadZoneRadius);
                 const radSq = mul(safeCoherence, safeCoherence);
+                // Exclusion is only non-zero inside the original 15%
+                // equilibrium shell. Gate directly on that smaller sphere so
+                // the inverse-square work is skipped for the rest of the
+                // coherence neighborhood.
+                const exclusionShellSq = mul(radSq, 0.0225);
                 let fx = float(0.0).toVar();
                 let fy = float(0.0).toVar();
                 let fz = float(0.0).toVar();
@@ -2224,7 +3180,23 @@ export class Engine {
                 // million-particle ceiling.
                 const phaseSyncSum = float(0.0).toVar();
                 const phaseWeightSum = float(0.0).toVar();
+                const schoolPhaseSyncSum = float(0.0).toVar();
+                const schoolPhaseWeightSum = float(0.0).toVar();
+                const pilotPhaseSyncSum = float(0.0).toVar();
+                const pilotPhaseWeightSum = float(0.0).toVar();
                 const phaseSamples = uint(0).toVar();
+                // Predation reuses admitted Scale Space pairs. These three
+                // bounded contact channels add no buffer and no second
+                // neighbor pass; they are inert when Predation is zero.
+                const preyContact = float(0.0).toVar();
+                const predatorContact = float(0.0).toVar();
+                const kinContact = float(0.0).toVar();
+                // Agency is a sparse colony-scale signal rather than another
+                // per-pair force. One scout in every 32 particles samples a
+                // coarse prey gradient; kin inherit its turn through the
+                // existing Schooling channel. These values remain zero when
+                // Agency is ablated.
+                const agencyGuideStrength = float(0.0).toVar();
 
                 const cx = int(floor(div(p.x, gridCellWidth)));
                 const cy = int(floor(div(p.y, gridCellWidth)));
@@ -2245,7 +3217,10 @@ export class Engine {
                 const fiveSpecies = this.uniforms.speciesFamilies.greaterThan(4.0);
                 const speciesFamilyCount = select(fiveSpecies, uint(5), uint(3));
                 const selfSpecies = mod(uint(instanceIndex), speciesFamilyCount);
-                const speciesBudgetActive = budgetEnabled.and(competitionActive);
+                const agencyScout = bitAnd(uint(instanceIndex), uint(31)).equal(uint(0));
+                const speciesBudgetActive = budgetEnabled.and(
+                    competitionActive.or(predationActive).or(schoolingActive)
+                );
                 const speciesQuotaBase = div(neighborBudget, speciesFamilyCount);
                 const speciesQuotaRemainder = mod(neighborBudget, speciesFamilyCount);
                 const speciesRank0 = mod(sub(speciesFamilyCount, selfSpecies), speciesFamilyCount);
@@ -2303,6 +3278,10 @@ export class Engine {
                 const ax = float(0).toVar();
                 const ay = float(0).toVar();
                 const az = float(0).toVar();
+                // Nearest admitted distance in Scale-Space Units. Keep the
+                // reduction linear inside the hot pair loop and pay for one
+                // logarithm per particle only in Log Scale color mode.
+                const nearestScaleRatio = float(65536.0).toVar();
 
                 Loop({ start: int(-1), end: int(2), type: 'int', condition: '<' }, ({ i: dxStep }) => {
                     const dx = select(budgetEnabled, budgetOffset(dxStep, signX), dxStep);
@@ -2329,10 +3308,20 @@ export class Engine {
                             const cellMayInteract = this.uniforms.neighborFilter.lessThan(0.5).or(cellMinDistSq.lessThan(radSq));
 
                             If(cellMayInteract, () => {
-                                const wx = uint(bitAnd(add(nx, int(10240)), int(63)));
-                                const wy = uint(bitAnd(add(ny, int(10240)), int(63)));
-                                const wz = uint(bitAnd(add(nz, int(10240)), int(63)));
-                                const neighborCellIdx = add(wx, add(mul(wy, uint(this.GRID_X)), mul(wz, uint(this.GRID_X * this.GRID_Y))));
+                                const nux = uint(add(nx, int(16777216)));
+                                const nuy = uint(add(ny, int(16777216)));
+                                const nuz = uint(add(nz, int(16777216)));
+                                const neighborHash = bitXor(
+                                    bitXor(
+                                        mul(nux, uint(73856093)),
+                                        mul(nuy, uint(19349663))
+                                    ),
+                                    mul(nuz, uint(83492791))
+                                );
+                                const neighborCellIdx = bitAnd(
+                                    neighborHash,
+                                    uint(this.GRID_TOTAL_CELLS - 1)
+                                );
                                 const cellCount = min(countBuf.element(neighborCellIdx), uint(this.MAX_PER_CELL));
                                 const candidateCount = cellCount.toVar();
                                 If(budgetEnabled, () => {
@@ -2348,6 +3337,10 @@ export class Engine {
 
                                     If(neighborId.notEqual(uint(instanceIndex)), () => {
                                         const neighborSpecies = mod(neighborId, speciesFamilyCount);
+                                        const neighborIsPilot = mod(
+                                            neighborId,
+                                            uint(this.PILOT_STRIDE)
+                                        ).equal(uint(0));
                                         const candidateAccepted = uint(1).toVar();
                                         If(speciesBudgetActive, () => {
                                             candidateAccepted.assign(uint(0));
@@ -2382,12 +3375,46 @@ export class Engine {
                                                 });
                                             });
                                         });
+                                        // A pilot is a tissue-level signal,
+                                        // not a species candidate. Preserve
+                                        // its local route even when species
+                                        // quotas have filled the pair budget.
+                                        If(pilotActive.and(neighborIsPilot), () => {
+                                            candidateAccepted.assign(uint(1));
+                                        });
                                         If(candidateAccepted.equal(uint(1)), () => {
                                         const nPos = pBuf.element(neighborId).xyz;
+                                        const neighborVitality = clamp(
+                                            vBuf.element(neighborId).w,
+                                            0.0,
+                                            1.0
+                                        );
+                                        const pairSignalIntegrity = mix(
+                                            1.0,
+                                            sqrt(max(0.0, mul(selfVitality, neighborVitality))),
+                                            predationAmount
+                                        );
+                                        const speciesCycle = mod(
+                                            sub(add(neighborSpecies, speciesFamilyCount), selfSpecies),
+                                            speciesFamilyCount
+                                        );
+                                        const kinPair = speciesCycle.equal(uint(0));
                                         const dx_p = sub(nPos.x, p.x);
                                         const dy_p = sub(nPos.y, p.y);
                                         const dz_p = sub(nPos.z, p.z);
                                         const dSq = add(mul(dx_p, dx_p), add(mul(dy_p, dy_p), mul(dz_p, dz_p)));
+
+                                        If(
+                                            scaleObserveActive.and(dSq.greaterThan(0.000000000001)),
+                                            () => {
+                                                nearestScaleRatio.assign(
+                                                    min(
+                                                        nearestScaleRatio,
+                                                        div(sqrt(dSq), safeCoherence)
+                                                    )
+                                                );
+                                            }
+                                        );
 
                                         // Species-neutral softened Coulomb
                                         // exclusion. Unlike the original
@@ -2398,19 +3425,32 @@ export class Engine {
                                         // core. Work in normalized coherence
                                         // coordinates for scale invariance,
                                         // soften the singularity at 2%, and
-                                        // taper to zero at the existing 15%
-                                        // equilibrium shell.
-                                        If(exclusionActive.and(dSq.lessThan(radSq)), () => {
+                                        // taper smoothly to zero at the
+                                        // existing 15% equilibrium shell.
+                                        If(exclusionActive.and(dSq.lessThan(exclusionShellSq)), () => {
                                             const exclusionQSq = div(dSq, radSq);
                                             const exclusionQ = sqrt(exclusionQSq);
+                                            // 0.02^2: softened normalized core.
                                             const exclusionSoftQSq = add(exclusionQSq, 0.0004);
                                             const exclusionInvSoftCube = div(
                                                 1.0,
                                                 mul(exclusionSoftQSq, sqrt(exclusionSoftQSq))
                                             );
-                                            const exclusionTaper = max(
+                                            const exclusionShellT = clamp(
+                                                div(exclusionQ, 0.15),
                                                 0.0,
-                                                sub(1.0, div(exclusionQ, 0.15))
+                                                1.0
+                                            );
+                                            // 1 - smoothstep(t): full inside
+                                            // the core, zero slope at the
+                                            // equilibrium shell. This removes
+                                            // the old linear cutoff ring.
+                                            const exclusionTaper = sub(
+                                                1.0,
+                                                mul(
+                                                    mul(exclusionShellT, exclusionShellT),
+                                                    sub(3.0, mul(2.0, exclusionShellT))
+                                                )
                                             );
                                             const exclusionGain = mul(
                                                 exclusionAmount,
@@ -2425,7 +3465,31 @@ export class Engine {
                                         If(dSq.lessThan(radSq).and(dSq.greaterThan(deadZoneSq)), () => {
                                         const d = sqrt(dSq);
                                         const ratio = div(d, safeCoherence);
-                                        const phaseForceFactor = float(1.0).toVar();
+                                        // Distance from Scale Space's 15%
+                                        // equilibrium shell, regularized into
+                                        // a bounded signed strain. This is the
+                                        // space -> phase half of the bridge:
+                                        // inside and outside the shell drive
+                                        // synchronization in opposite senses.
+                                        const signedRatio = sub(ratio, 0.15);
+                                        const zeroWidth = max(this.uniforms.zeroWidth, 0.001);
+                                        const spatialStrain = div(
+                                            signedRatio,
+                                            sqrt(
+                                                add(
+                                                    mul(signedRatio, signedRatio),
+                                                    mul(zeroWidth, zeroWidth)
+                                                )
+                                            )
+                                        );
+                                        // Phase Force moves the pair's
+                                        // effective zero crossing by up to
+                                        // half the original shell radius.
+                                        // Zero leaves the distance coordinate
+                                        // untouched; full strength lets phase
+                                        // agreement move equilibrium between
+                                        // 7.5% and 22.5% of coherence.
+                                        const phaseDistanceShift = float(0.0).toVar();
                                         If(
                                             phaseNeighborActive.and(phaseSamples.lessThan(uint(16))),
                                             () => {
@@ -2444,12 +3508,18 @@ export class Engine {
                                                     mul(fract(mul(add(rawPhaseDelta, 1.0), 0.5)), 2.0),
                                                     1.0
                                                 );
+                                                // Lens is deliberately added
+                                                // after wrapping the relative
+                                                // phase. A global phase offset
+                                                // would otherwise cancel out
+                                                // of a neighbor difference and
+                                                // remain merely decorative.
                                                 const ordinaryPhaseAngle = mul(
-                                                    wrappedOrdinaryTurns,
+                                                    add(wrappedOrdinaryTurns, lens),
                                                     Math.PI * 2.0
                                                 );
                                                 const spinorPhaseAngle = mul(
-                                                    wrappedSpinorTurns,
+                                                    add(wrappedSpinorTurns, lens),
                                                     Math.PI
                                                 );
                                                 const phaseSyncSignal = mix(
@@ -2463,16 +3533,31 @@ export class Engine {
                                                     spinorAmount
                                                 );
                                                 const phaseWeight = max(0.0, sub(1.0, ratio));
+                                                const healthyPhaseWeight = mul(
+                                                    phaseWeight,
+                                                    pairSignalIntegrity
+                                                );
 
                                                 If(phaseCouplingActive, () => {
-                                                    phaseSyncSum.addAssign(mul(phaseSyncSignal, phaseWeight));
-                                                    phaseWeightSum.addAssign(phaseWeight);
+                                                    phaseSyncSum.addAssign(
+                                                        mul(
+                                                            mul(phaseSyncSignal, healthyPhaseWeight),
+                                                            spatialStrain
+                                                        )
+                                                    );
+                                                    phaseWeightSum.addAssign(healthyPhaseWeight);
+                                                });
+                                                If(schoolingActive.and(kinPair), () => {
+                                                    schoolPhaseSyncSum.addAssign(
+                                                        mul(phaseSyncSignal, healthyPhaseWeight)
+                                                    );
+                                                    schoolPhaseWeightSum.addAssign(healthyPhaseWeight);
                                                 });
                                                 If(phaseForceActive, () => {
-                                                    phaseForceFactor.assign(
-                                                        add(
-                                                            sub(1.0, phaseForceAmount),
-                                                            mul(phaseForceAmount, phaseAgreement)
+                                                    phaseDistanceShift.assign(
+                                                        mul(
+                                                            mul(phaseForceAmount, pairSignalIntegrity),
+                                                            mul(0.075, phaseAgreement)
                                                         )
                                                     );
                                                 });
@@ -2480,21 +3565,32 @@ export class Engine {
                                             }
                                         );
                                         If(pairForceActive, () => {
-                                            // Signed distance from the existing 0.15 equilibrium
-                                            // shell. The regularized reciprocal is odd and maps
-                                            // zero to zero, so the attractive/repulsive boundary
-                                            // survives inversion instead of becoming singular.
-                                            const signedRatio = sub(ratio, 0.15);
-                                            const zeroWidth = max(this.uniforms.zeroWidth, 0.001);
-                                            const invertedRatio = div(
+                                            // Signal -> space: phase shifts
+                                            // the signed distance coordinate
+                                            // before either Scale Space force
+                                            // law sees it. The reciprocal
+                                            // remains odd and finite at the
+                                            // now phase-controlled zero.
+                                            const effectiveSignedRatio = sub(
                                                 signedRatio,
-                                                add(mul(signedRatio, signedRatio), mul(zeroWidth, zeroWidth))
+                                                phaseDistanceShift
+                                            );
+                                            const effectiveRatio = add(
+                                                0.15,
+                                                effectiveSignedRatio
+                                            );
+                                            const invertedRatio = div(
+                                                effectiveSignedRatio,
+                                                add(
+                                                    mul(effectiveSignedRatio, effectiveSignedRatio),
+                                                    mul(zeroWidth, zeroWidth)
+                                                )
                                             );
                                             const originalForce = float(0).toVar();
-                                            If(ratio.greaterThan(0.15), () => {
-                                                originalForce.assign(mul(this.uniforms.scaleDepth, mul(25.0, sub(1.0, ratio))));
+                                            If(effectiveSignedRatio.greaterThan(0.0), () => {
+                                                originalForce.assign(mul(this.uniforms.scaleDepth, mul(25.0, sub(1.0, effectiveRatio))));
                                             }).Else(() => {
-                                                originalForce.assign(mul(this.uniforms.scaleDepth, mul(-150.0, sub(0.15, ratio))));
+                                                originalForce.assign(mul(this.uniforms.scaleDepth, mul(-150.0, sub(0.15, effectiveRatio))));
                                             });
 
                                             const inversionDepth = max(this.uniforms.scaleDepth, 1.0);
@@ -2521,10 +3617,6 @@ export class Engine {
                                             // coefficient, deliberately
                                             // gentle but persistent through
                                             // Response Memory.
-                                            const speciesCycle = mod(
-                                                sub(add(neighborSpecies, speciesFamilyCount), selfSpecies),
-                                                speciesFamilyCount
-                                            );
                                             const speciesPursued = speciesCycle.equal(uint(1)).or(
                                                 fiveSpecies.and(speciesCycle.equal(uint(2)))
                                             );
@@ -2536,15 +3628,52 @@ export class Engine {
                                                 float(1.0),
                                                 select(speciesFled, float(-1.0), float(0.0))
                                             );
+                                            // Ecology uses the same cyclic
+                                            // direction as chase/flee:
+                                            // pursued neighbors are food,
+                                            // fled neighbors are predators,
+                                            // and matching species provide
+                                            // weak coherent support. Weight
+                                            // contact by proximity and the
+                                            // neighbor's present vitality.
+                                            If(predationActive, () => {
+                                                const contactWeight = mul(
+                                                    max(0.0, sub(1.0, ratio)),
+                                                    neighborVitality
+                                                );
+                                                If(speciesPursued, () => {
+                                                    preyContact.addAssign(contactWeight);
+                                                });
+                                                If(speciesFled, () => {
+                                                    predatorContact.addAssign(contactWeight);
+                                                });
+                                                If(kinPair, () => {
+                                                    kinContact.addAssign(contactWeight);
+                                                });
+                                            });
+                                            // Vital particles press their
+                                            // species intent more strongly;
+                                            // depleted particles retain a
+                                            // little agency instead of
+                                            // freezing. At Predation zero
+                                            // this multiplier is exactly 1.
+                                            const vitalityAgency = mix(
+                                                1.0,
+                                                add(0.35, mul(0.9, selfVitality)),
+                                                predationAmount
+                                            );
                                             const speciesForce = mul(
                                                 coherenceActivity,
                                                 mul(
                                                     competitionAmount,
-                                                    mul(1.25, mul(sub(1.0, ratio), speciesSign))
+                                                    mul(
+                                                        vitalityAgency,
+                                                        mul(1.25, mul(sub(1.0, ratio), speciesSign))
+                                                    )
                                                 )
                                             );
                                             const forceStr = add(
-                                                mul(scaleSpaceForce, phaseForceFactor),
+                                                scaleSpaceForce,
                                                 speciesForce
                                             );
 
@@ -2564,6 +3693,74 @@ export class Engine {
                                             fy.addAssign(mul(sub(nVel.y, v.y), couplingWeight));
                                             fz.addAssign(mul(sub(nVel.z, v.z), couplingWeight));
                                         });
+                                        // Species-aware schooling is local
+                                        // entrainment rather than global
+                                        // drag: only kin align velocity, and
+                                        // depleted signal pairs align less.
+                                        // Zero is an exact no-op.
+                                        If(schoolingActive.and(kinPair), () => {
+                                            const kinVelocity = vBuf.element(neighborId).xyz;
+                                            const schoolWeight = mul(
+                                                0.25,
+                                                mul(
+                                                    schoolingAmount,
+                                                    mul(
+                                                        coherenceActivity,
+                                                        mul(
+                                                            pairSignalIntegrity,
+                                                            max(0.0, sub(1.0, ratio))
+                                                        )
+                                                    )
+                                                )
+                                            );
+                                            fx.addAssign(mul(sub(kinVelocity.x, v.x), schoolWeight));
+                                            fy.addAssign(mul(sub(kinVelocity.y, v.y), schoolWeight));
+                                            fz.addAssign(mul(sub(kinVelocity.z, v.z), schoolWeight));
+                                        });
+                                        // Pilots route measured consensus;
+                                        // they do not exert a privileged
+                                        // attraction. Nearby tissue accepts
+                                        // only a bounded share of the mean
+                                        // velocity and phase published by
+                                        // the preceding metric pass.
+                                        If(pilotActive.and(neighborIsPilot), () => {
+                                            const pilotSlot = div(
+                                                neighborId,
+                                                uint(this.PILOT_STRIDE)
+                                            );
+                                            const pilotSignal = pilotSignalBuf.element(pilotSlot);
+                                            const pilotAuthority = clamp(pilotSignal.w, 0.0, 1.0);
+                                            const routeWeight = mul(
+                                                pilotAmount,
+                                                mul(
+                                                    pilotAuthority,
+                                                    mul(
+                                                        coherenceActivity,
+                                                        mul(
+                                                            pairSignalIntegrity,
+                                                            max(0.0, sub(1.0, ratio))
+                                                        )
+                                                    )
+                                                )
+                                            );
+                                            const routedVelocity = pilotSignal.xyz;
+                                            fx.addAssign(mul(sub(routedVelocity.x, v.x), mul(0.5, routeWeight)));
+                                            fy.addAssign(mul(sub(routedVelocity.y, v.y), mul(0.5, routeWeight)));
+                                            fz.addAssign(mul(sub(routedVelocity.z, v.z), mul(0.5, routeWeight)));
+
+                                            const pilotPhase = identityBuf.element(neighborId).w;
+                                            const pilotPhaseDelta = sub(
+                                                fract(add(sub(pilotPhase, particlePhase), 0.5)),
+                                                0.5
+                                            );
+                                            pilotPhaseSyncSum.addAssign(
+                                                mul(
+                                                    sin(mul(pilotPhaseDelta, Math.PI * 2.0)),
+                                                    routeWeight
+                                                )
+                                            );
+                                            pilotPhaseWeightSum.addAssign(routeWeight);
+                                        });
                                         });
                                         });
                                     });
@@ -2571,6 +3768,118 @@ export class Engine {
                                 candidatesVisited.addAssign(candidateCount);
                             });
                         });
+                    });
+                });
+
+                If(scaleObserveActive, () => {
+                    const hasScaleNeighbor = nearestScaleRatio.lessThan(65535.0);
+                    const logScale = select(
+                        hasScaleNeighbor,
+                        div(
+                            log(max(nearestScaleRatio, 0.000001)),
+                            Math.LN2
+                        ),
+                        4.0
+                    );
+                    // Twelve sub-SSU octaves plus four outer octaves cover
+                    // the useful observable range without allowing a single
+                    // numerical outlier to flatten the color spectrum.
+                    scaleObservationNode.assign(clamp(logScale, -12.0, 4.0));
+                }).Else(() => {
+                    scaleObservationNode.assign(0.0);
+                });
+
+                // Long-range colony guidance. Scouts do not know a prey
+                // centroid and never receive a straight-line target vector.
+                // Instead each one samples six cells four Scale-Space Units
+                // away. The difference between opposite prey signatures is a
+                // local gradient, re-evaluated every frame as the coherent
+                // field bends. Only four occupants per probe are inspected,
+                // so the sparse 1:32 scouts add less than one extra candidate
+                // read per simulated particle on average.
+                If(agencyActive.and(agencyScout), () => {
+                    const preySignalAt = Fn(([ox, oy, oz]) => {
+                        const gx = add(cx, ox);
+                        const gy = add(cy, oy);
+                        const gz = add(cz, oz);
+                        const gux = uint(add(gx, int(16777216)));
+                        const guy = uint(add(gy, int(16777216)));
+                        const guz = uint(add(gz, int(16777216)));
+                        const probeHash = bitXor(
+                            bitXor(
+                                mul(gux, uint(73856093)),
+                                mul(guy, uint(19349663))
+                            ),
+                            mul(guz, uint(83492791))
+                        );
+                        const probeCellIdx = bitAnd(
+                            probeHash,
+                            uint(this.GRID_TOTAL_CELLS - 1)
+                        );
+                        const probeCount = min(countBuf.element(probeCellIdx), uint(4));
+                        const preySignal = float(0.0).toVar();
+                        Loop({ start: uint(0), end: probeCount, type: 'uint', condition: '<' }, ({ i: sample }) => {
+                            const probeMemberIdx = add(
+                                mul(probeCellIdx, uint(this.MAX_PER_CELL)),
+                                sample
+                            );
+                            const probeId = memberBuf.element(probeMemberIdx);
+                            const probeSpecies = mod(probeId, speciesFamilyCount);
+                            const probeCycle = mod(
+                                sub(add(probeSpecies, speciesFamilyCount), selfSpecies),
+                                speciesFamilyCount
+                            );
+                            const probeIsPrey = probeCycle.equal(uint(1)).or(
+                                fiveSpecies.and(probeCycle.equal(uint(2)))
+                            );
+                            If(probeIsPrey, () => {
+                                preySignal.addAssign(clamp(vBuf.element(probeId).w, 0.0, 1.0));
+                            });
+                        });
+                        return div(preySignal, add(1.0, preySignal));
+                    });
+
+                    const probeStride = int(4);
+                    const preyPX = preySignalAt(probeStride, int(0), int(0));
+                    const preyNX = preySignalAt(mul(probeStride, int(-1)), int(0), int(0));
+                    const preyPY = preySignalAt(int(0), probeStride, int(0));
+                    const preyNY = preySignalAt(int(0), mul(probeStride, int(-1)), int(0));
+                    const preyPZ = preySignalAt(int(0), int(0), probeStride);
+                    const preyNZ = preySignalAt(int(0), int(0), mul(probeStride, int(-1)));
+                    const preyGradient = vec3(
+                        sub(preyPX, preyNX),
+                        sub(preyPY, preyNY),
+                        sub(preyPZ, preyNZ)
+                    );
+                    const gradientStrength = length(preyGradient);
+
+                    If(gradientStrength.greaterThan(0.0001), () => {
+                        const desiredDirection = div(preyGradient, gradientStrength);
+                        const speed = length(v);
+                        const travelDirection = select(
+                            speed.greaterThan(0.0001),
+                            div(v, max(speed, 0.0001)),
+                            desiredDirection
+                        );
+                        // Remove the forward component: Agency turns a scout
+                        // toward food without injecting a straight-line speed
+                        // boost. Response Memory then rounds the turn into an
+                        // arc and Schooling distributes it through nearby kin.
+                        const lateralTurn = sub(
+                            desiredDirection,
+                            mul(travelDirection, dot(desiredDirection, travelDirection))
+                        );
+                        const guideStrength = mul(
+                            agencyAmount,
+                            mul(
+                                selfSignalIntegrity,
+                                mul(coherenceActivity, gradientStrength)
+                            )
+                        );
+                        fx.addAssign(mul(lateralTurn.x, mul(2.0, guideStrength)));
+                        fy.addAssign(mul(lateralTurn.y, mul(2.0, guideStrength)));
+                        fz.addAssign(mul(lateralTurn.z, mul(2.0, guideStrength)));
+                        agencyGuideStrength.assign(guideStrength);
                     });
                 });
 
@@ -2592,7 +3901,6 @@ export class Engine {
                 // of exactly 1, preserving the original global Phase Lens.
                 // Phase Lens = 0 still multiplies by exactly 1, fully
                 // ablating this layer.
-                const lens = clamp(this.uniforms.phaseLens, -1.0, 1.0);
                 const requestedFrequencyFamilies = clamp(this.uniforms.frequencyFamilies, 1.0, 5.0);
                 const frequencyFamilyCount = sub(
                     mul(floor(div(add(requestedFrequencyFamilies, 1.0), 2.0)), 2.0),
@@ -2639,7 +3947,16 @@ export class Engine {
                     particlePhaseSignal,
                     cos(proceduralFieldPhase)
                 );
-                const phaseFocus = add(1.0, mul(mul(abs(lens), 0.12), fieldPhaseSignal));
+                // A 35% focus range makes the phase offset readable in the
+                // curl field while preserving a positive field multiplier
+                // (0.65..1.35) and exact ablation at Lens = 0.
+                const phaseFocus = add(
+                    1.0,
+                    mul(
+                        mul(mul(abs(lens), 0.35), fieldPhaseSignal),
+                        selfSignalIntegrity
+                    )
+                );
                 const turb = mul(
                     curlNoise(curlPos, mul(eq, 10.0), mul(temp, 2.0)),
                     phaseFocus
@@ -2688,24 +4005,55 @@ export class Engine {
                 });
 
                 const distFromOrigin = length(p);
+                const dirFromOrigin = select(
+                    distFromOrigin.greaterThan(0.0001),
+                    div(p, max(distFromOrigin, 0.0001)),
+                    vec3(0.0)
+                );
+
+                // Reciprocal pair forces can be orders of magnitude stronger
+                // than an absolute radial spring. In inverted space, give
+                // Home Pull perceptual authority by borrowing the current
+                // field's magnitude and redirecting a user-selected fraction
+                // inward. At 0 this is exactly ablated. At full inversion and
+                // pull, outward acceleration is canceled beyond the five-unit
+                // core while tangential motion survives and bends into arcs.
+                const inversionHomeAuthority = mul(
+                    inversionAmount,
+                    clamp(this.uniforms.homePull, 0.0, 1.0)
+                );
+                If(
+                    inversionHomeAuthority.greaterThan(0.000001)
+                        .and(distFromOrigin.greaterThan(0.0001)),
+                    () => {
+                        const fieldMagnitude = length(vec3(fx, fy, fz));
+                        const homeDistanceWeight = clamp(div(distFromOrigin, 5.0), 0.0, 1.0);
+                        const relativeHomeStrength = mul(
+                            fieldMagnitude,
+                            mul(inversionHomeAuthority, homeDistanceWeight)
+                        );
+                        fx.subAssign(mul(dirFromOrigin.x, relativeHomeStrength));
+                        fy.subAssign(mul(dirFromOrigin.y, relativeHomeStrength));
+                        fz.subAssign(mul(dirFromOrigin.z, relativeHomeStrength));
+                    }
+                );
+
                 If(distFromOrigin.greaterThan(5.0), () => {
                     const pullStrength = mul(
                         this.uniforms.homePull,
                         min(mul(sub(distFromOrigin, 5.0), 0.05), float(1.5))
                     );
-                    const dirToOrigin = normalize(p);
-                    fx.subAssign(mul(dirToOrigin.x, pullStrength));
-                    fy.subAssign(mul(dirToOrigin.y, pullStrength));
-                    fz.subAssign(mul(dirToOrigin.z, pullStrength));
+                    fx.subAssign(mul(dirFromOrigin.x, pullStrength));
+                    fy.subAssign(mul(dirFromOrigin.y, pullStrength));
+                    fz.subAssign(mul(dirFromOrigin.z, pullStrength));
                 });
 
                 const softLimit = mul(maxR, 0.8);
                 If(distFromOrigin.greaterThan(softLimit), () => {
                     const push = mul(this.uniforms.homePull, mul(sub(distFromOrigin, softLimit), 0.5));
-                    const dirToOrigin = normalize(p);
-                    fx.subAssign(mul(dirToOrigin.x, push));
-                    fy.subAssign(mul(dirToOrigin.y, push));
-                    fz.subAssign(mul(dirToOrigin.z, push));
+                    fx.subAssign(mul(dirFromOrigin.x, push));
+                    fy.subAssign(mul(dirFromOrigin.y, push));
+                    fz.subAssign(mul(dirFromOrigin.z, push));
                 });
 
                 // Natural family frequency advances the stored phase in
@@ -2725,13 +4073,54 @@ export class Engine {
                     phaseCouplingAmount,
                     mul(
                         phaseSyncMean,
-                        mul(this.uniforms.dt, mul(tempoSpeed, 0.5))
+                        mul(this.uniforms.dt, tempoSpeed)
+                    )
+                );
+                const schoolPhaseMean = div(
+                    schoolPhaseSyncSum,
+                    max(schoolPhaseWeightSum, 0.000001)
+                );
+                const schoolPhaseStep = mul(
+                    schoolingAmount,
+                    mul(
+                        schoolPhaseMean,
+                        mul(0.75, mul(this.uniforms.dt, tempoSpeed))
+                    )
+                );
+                // A scout advances its phase slightly when it has a readable
+                // prey gradient. Kin phase alignment spreads this urgency
+                // through the colony without encoding a global target angle.
+                const agencyPhaseStep = mul(
+                    agencyGuideStrength,
+                    mul(0.25, mul(this.uniforms.dt, tempoSpeed))
+                );
+                const pilotPhaseMean = div(
+                    pilotPhaseSyncSum,
+                    max(pilotPhaseWeightSum, 0.000001)
+                );
+                const pilotPhaseStep = mul(
+                    pilotAmount,
+                    mul(
+                        pilotPhaseMean,
+                        mul(0.5, mul(this.uniforms.dt, tempoSpeed))
                     )
                 );
                 const nextParticlePhase = mul(
                     fract(
                         mul(
-                            add(particlePhase, add(naturalPhaseStep, couplingPhaseStep)),
+                            add(
+                                particlePhase,
+                                add(
+                                    naturalPhaseStep,
+                                    add(
+                                        couplingPhaseStep,
+                                        add(
+                                            schoolPhaseStep,
+                                            add(agencyPhaseStep, pilotPhaseStep)
+                                        )
+                                    )
+                                )
+                            ),
                             0.5
                         )
                     ),
@@ -2784,27 +4173,109 @@ export class Engine {
                 const decayNoise = add(float(1.0), mul(fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))).mul(43758.5453)), float(0.5)));
                 const decayRate = max(float(0.0), mul(sub(float(30.0), this.uniforms.halfLife), mul(float(0.05), mul(tempoSpeed, mul(this.uniforms.dt, decayNoise)))));
                 const life = sub(vNode.w, decayRate).toVar();
+                If(predationActive, () => {
+                    // Saturating contact signals prevent dense cells from
+                    // creating unbounded vitality jumps. Food can offset the
+                    // original Half-Life decay; predators drain faster than
+                    // prey feeds, kin offer a small shelter effect, and a
+                    // light metabolic cost keeps the ecology moving.
+                    const food = div(preyContact, add(1.0, preyContact));
+                    const threat = div(predatorContact, add(1.0, predatorContact));
+                    const kin = div(kinContact, add(1.0, kinContact));
+                    const vitalityResponse = add(
+                        sub(mul(1.1, food), mul(1.35, threat)),
+                        sub(mul(0.18, kin), 0.04)
+                    );
+                    const vitalityDelta = mul(
+                        predationAmount,
+                        mul(this.uniforms.dt, mul(tempoSpeed, vitalityResponse))
+                    );
+                    life.assign(min(1.0, add(life, vitalityDelta)));
+                });
                 
                 const hashVec = vec3(p.x, p.y, add(p.z, float(instanceIndex)));
-                const randAngle1 = mul(fract(sin(dot(hashVec, vec3(12.9898, 78.233, 45.164))).mul(43758.5453)), mul(Math.PI, 2.0));
-                const randAngle2 = mul(fract(sin(dot(hashVec, vec3(45.164, 12.9898, 78.233))).mul(43758.5453)), mul(Math.PI, 2.0));
+                // The original launch law sampled its polar angle uniformly,
+                // over-populating two opposing poles and producing the
+                // characteristic two-nozzle projection. Geometry can retain
+                // that exact law or use equal-solid-angle spherical launch.
+                const launchU = fract(
+                    sin(dot(hashVec, vec3(12.9898, 78.233, 45.164))).mul(43758.5453)
+                );
+                const launchV = fract(
+                    sin(dot(hashVec, vec3(45.164, 12.9898, 78.233))).mul(43758.5453)
+                );
+                const launchZ = sub(mul(launchU, 2.0), 1.0);
+                const launchAzimuth = mul(launchV, mul(Math.PI, 2.0));
+                const launchRadius = sqrt(max(0.0, sub(1.0, mul(launchZ, launchZ))));
+                const originalAngle1 = mul(launchU, mul(Math.PI, 2.0));
+                const originalAngle2 = mul(launchV, mul(Math.PI, 2.0));
                 const blastSpeed = add(mul(fract(sin(dot(hashVec, vec3(78.233, 45.164, 12.9898))).mul(43758.5453)), 20.0), 5.0);
-                const blastV = vec3(
-                    mul(sin(randAngle1), cos(randAngle2)),
-                    mul(sin(randAngle1), sin(randAngle2)),
-                    cos(randAngle1)
-                ).mul(blastSpeed);
+                const sphereDirection = vec3(
+                    mul(launchRadius, cos(launchAzimuth)),
+                    mul(launchRadius, sin(launchAzimuth)),
+                    launchZ
+                );
+                const twoLineDirection = vec3(
+                    mul(sin(originalAngle1), cos(originalAngle2)),
+                    mul(sin(originalAngle1), sin(originalAngle2)),
+                    cos(originalAngle1)
+                );
+                const launchDirection = select(
+                    this.uniforms.projectionNozzle.greaterThanEqual(0.5),
+                    sphereDirection,
+                    twoLineDirection
+                );
+                const blastV = launchDirection.mul(blastSpeed);
 
                 const crossedBoundary = this.uniforms.worldBoundary.greaterThan(0.0)
                     .and(length(newP).greaterThan(this.uniforms.worldBoundary));
                 If(life.lessThan(0.0).or(crossedBoundary), () => {
-                    newP.assign(vec3(0.0, 0.0, 0.0));
+                    // Preserve the original point emitter when Phoenix
+                    // inversion is ablated. As inversion opens fractional
+                    // space, respawn just outside its protected dead zone.
+                    // Exact coincident points have dSq=0 and cannot acquire a
+                    // separating direction, which otherwise creates a real
+                    // zero singularity at high turnover.
+                    const rebirthShellRadius = mul(
+                        inversionAmount,
+                        max(
+                            mul(deadZoneRadius, 1.05),
+                            mul(safeCoherence, 0.002)
+                        )
+                    );
+                    newP.assign(mul(launchDirection, rebirthShellRadius));
                     newV.assign(blastV);
                     life.assign(float(1.0));
                     // Response memory clears on rebirth, while phase remains
                     // continuous across the particle lifecycle.
                     identityNode.assign(vec4(0.0, 0.0, 0.0, identityNode.w));
                 });
+
+                // Sample the occupied field envelope without reading back the
+                // particle buffer. Sharded radius sums and counts avoid one
+                // global atomic hot spot; the CPU later takes the median mean
+                // to reject isolated escapees and frame the main visible body.
+                If(
+                    mod(uint(instanceIndex), uint(this.FIELD_EXTENT_SAMPLE_STRIDE)).equal(uint(0)),
+                    () => {
+                        const sampleOrdinal = div(
+                            uint(instanceIndex),
+                            uint(this.FIELD_EXTENT_SAMPLE_STRIDE)
+                        );
+                        const shard = mod(sampleOrdinal, uint(this.FIELD_EXTENT_SHARDS));
+                        const quantizedRadius = uint(
+                            mul(
+                                min(length(newP), 16000.0),
+                                float(this.FIELD_EXTENT_QUANTIZATION)
+                            )
+                        );
+                        atomicAdd(fieldExtentBuf.element(shard), quantizedRadius);
+                        atomicAdd(
+                            fieldExtentBuf.element(add(uint(this.FIELD_EXTENT_SHARDS), shard)),
+                            uint(1)
+                        );
+                    }
+                );
 
                 vNode.assign(vec4(newV, life));
                 // Preserve per-particle size variation in pos.w. Previously
@@ -2825,6 +4296,7 @@ export class Engine {
         this.computeClearNode = computeClearGrid().compute(this.GRID_TOTAL_CELLS);
         const initialActiveCount = Math.max(1, Math.min(this.particleCount, Math.round(window.S.freeEnergy)));
         this.computeAssignNode = computeAssignGrid().compute(initialActiveCount);
+        this.computePilotNode = computePilots().compute(this.PILOT_COUNT);
         this.computeNode = computePhysics().compute(initialActiveCount);
     }
 
@@ -2863,6 +4335,11 @@ export class Engine {
 
         const posFromBuf = storage(this.posStorage, 'vec4', this.particleCount).element(instanceIndex);
         const colFromBuf = storage(this.colStorage, 'vec4', this.particleCount).element(instanceIndex);
+        const scaleFromBuf = storage(
+            this.scaleObservationStorage,
+            'float',
+            this.particleCount
+        ).element(instanceIndex);
 
         this.material = new THREE.MeshBasicNodeMaterial({
             transparent: true,
@@ -2872,8 +4349,67 @@ export class Engine {
         });
 
         const worldOffset = vec3(this.uniforms.offsetX, this.uniforms.offsetY, this.uniforms.offsetZ);
-        const worldPos = add(mul(posFromBuf.xyz, this.uniforms.presentationScale), worldOffset);
+        const presentedParticlePos = scaleLensPosition(
+            posFromBuf.xyz,
+            this.uniforms.lensFocus,
+            this.uniforms.coherence,
+            this.uniforms.zeroWidth,
+            this.uniforms.scaleLens,
+            this.uniforms.inversion,
+            this.uniforms.presentationScale
+        );
+        const worldPos = add(presentedParticlePos, worldOffset);
         const viewPos = modelViewMatrix.mul(vec4(worldPos, 1.0)).xyz;
+
+        // Camera-local render LOD. At high Presentation Scale, a small
+        // simulation-space separation becomes a large visual distance and
+        // most visible quads contribute only dense overdraw. Preserve a
+        // six-SSU detail bubble around the camera, then deterministically
+        // thin the distance field. Stable instance hashing prevents sparkle;
+        // enlarging retained representatives turns the far field into a
+        // coherent cloud instead of perforated confetti. Cloud LOD zero makes
+        // keepProbability exactly one and restores the original vertex path.
+        const cloudLodAmount = clamp(this.uniforms.cloudLod, 0.0, 1.0);
+        const presentationMagnitude = max(abs(this.uniforms.presentationScale), 0.000001);
+        const presentationPressure = clamp(
+            div(sub(presentationMagnitude, 1.0), 9.0),
+            0.0,
+            1.0
+        );
+        const cloudLodStrength = mul(cloudLodAmount, presentationPressure);
+        const renderSsu = mul(
+            sqrt(
+                add(
+                    mul(this.uniforms.coherence, this.uniforms.coherence),
+                    mul(max(this.uniforms.zeroWidth, 0.001), max(this.uniforms.zeroWidth, 0.001))
+                )
+            ),
+            presentationMagnitude
+        );
+        const cameraToParticle = length(sub(worldPos, this.uniforms.camPos));
+        const cameraToSubject = length(sub(this.uniforms.camPos, worldOffset));
+        const detailRadius = max(mul(renderSsu, 6.0), mul(cameraToSubject, 0.08));
+        const farRatio = max(
+            0.0,
+            div(sub(cameraToParticle, detailRadius), max(detailRadius, 0.001))
+        );
+        const farKeepProbability = clamp(
+            div(1.0, add(1.0, mul(4.0, mul(farRatio, farRatio)))),
+            0.015625,
+            1.0
+        );
+        const keepProbability = mix(1.0, farKeepProbability, cloudLodStrength);
+        const lodHash = fract(
+            mul(
+                sin(add(mul(float(instanceIndex), 12.9898), 78.233)),
+                43758.5453
+            )
+        );
+        const cloudVisible = lodHash.lessThan(keepProbability);
+        const cloudSizeBoost = min(
+            3.0,
+            div(1.0, sqrt(max(keepProbability, 0.000001)))
+        );
 
         const colorMode = this.uniforms.colorMode;
         // Perceptual gamma curve on color spectrum range: linear colorRange
@@ -2887,16 +4423,22 @@ export class Engine {
         const velFromBuf = storage(this.velStorage, 'vec4', this.particleCount).element(instanceIndex);
         const densityCoherenceSq = mul(this.uniforms.coherence, this.uniforms.coherence);
         const densityEpsilon = max(this.uniforms.zeroWidth, 0.001);
-        const densityCellWidth = max(
-            sqrt(add(densityCoherenceSq, mul(densityEpsilon, densityEpsilon))),
-            1.0
+        const densityCellWidth = sqrt(
+            add(densityCoherenceSq, mul(densityEpsilon, densityEpsilon))
         );
 
         const getCellIndex = Fn(([cx, cy, cz]) => {
-            const wx = uint(bitAnd(add(cx, int(10000)), int(63)));
-            const wy = uint(bitAnd(add(cy, int(10000)), int(63)));
-            const wz = uint(bitAnd(add(cz, int(10000)), int(63)));
-            return add(wx, add(mul(wy, uint(this.GRID_X)), mul(wz, uint(this.GRID_X * this.GRID_Y))));
+            const ux = uint(add(cx, int(16777216)));
+            const uy = uint(add(cy, int(16777216)));
+            const uz = uint(add(cz, int(16777216)));
+            const hash = bitXor(
+                bitXor(
+                    mul(ux, uint(73856093)),
+                    mul(uy, uint(19349663))
+                ),
+                mul(uz, uint(83492791))
+            );
+            return bitAnd(hash, uint(this.GRID_TOTAL_CELLS - 1));
         });
 
         const getSmoothDensity = Fn(([p]) => {
@@ -2944,12 +4486,38 @@ export class Engine {
         });
         const density = getOptionalDensity(posFromBuf.xyz, colorMode);
         const speed = length(velFromBuf.xyz);
+        const vitality = clamp(velFromBuf.w, 0.0, 1.0);
+        const vitalitySize = mix(
+            1.0,
+            add(0.65, mul(0.7, vitality)),
+            clamp(this.uniforms.predation, 0.0, 1.0)
+        );
+        const pilotVisual = mul(
+            clamp(this.uniforms.pilot, 0.0, 1.0),
+            select(
+                mod(uint(instanceIndex), uint(this.PILOT_STRIDE)).equal(uint(0)),
+                1.0,
+                0.0
+            )
+        );
 
-        const pSize = mul(posFromBuf.w, this.uniforms.pointSize, float(0.4));
-        const finalSize = max(pSize, float(0.1));
+        const pSize = mul(
+            mul(posFromBuf.w, this.uniforms.pointSize, float(0.4)),
+            vitalitySize
+        );
+        const pilotSizeBoost = mix(1.0, 1.75, pilotVisual);
+        const finalSize = max(
+            mul(mul(pSize, cloudSizeBoost), pilotSizeBoost),
+            float(0.1)
+        );
         const lQuadPos = positionLocal.mul(finalSize);
         const fViewPos = add(viewPos, vec3(lQuadPos.x, lQuadPos.y, this.uniforms.billboardOffset));
-        this.material.vertexNode = cameraProjectionMatrix.mul(vec4(fViewPos, 1.0));
+        const projectedParticle = cameraProjectionMatrix.mul(vec4(fViewPos, 1.0));
+        this.material.vertexNode = select(
+            cloudVisible,
+            projectedParticle,
+            vec4(0.0, 0.0, 2.0, 1.0)
+        );
 
         const spectrumWidth = add(mul(colorRange, float(1.2)), float(0.05));
         
@@ -2980,10 +4548,26 @@ export class Engine {
         // the spatial-hash cell capacity (32) so typical mid-cluster
         // densities of 4-8 land in mid-spectrum.
         const densityVal = clamp(div(float(density), mul(spectrumWidth, float(12.0))), 0.0, 1.0);
+        // Log Scale mode maps equal multiplicative distance changes to equal
+        // color travel. -12 is 1/4096 SSU, 0 is one SSU, and the upper four
+        // octaves retain a small outer-neighborhood margin.
+        const logScaleVal = clamp(div(add(scaleFromBuf, 12.0), 16.0), 0.0, 1.0);
         
         const sizeColor = spectralColor(sizeVal);
         const velColor = spectralColor(velVal);
         const densityColor = spectralColor(densityVal);
+        const logScaleColor = spectralColor(logScaleVal);
+        const fiveSpecies = this.uniforms.speciesFamilies.greaterThan(4.0);
+        const speciesFamilyCount = select(fiveSpecies, 5.0, 3.0);
+        const selfSpecies = mod(float(instanceIndex), speciesFamilyCount);
+        const speciesVal = varying(
+            div(
+                add(selfSpecies, 0.5),
+                speciesFamilyCount
+            ),
+            'vSpeciesValue'
+        );
+        const speciesColor = spectralColor(speciesVal);
         const baseColor = specCore(colorRange);
         
         // Mono mode (0) is pure white — independent of the colorRange/hue
@@ -2992,7 +4576,9 @@ export class Engine {
         // changed, which contradicted the "mono = neutral" expectation.
         const baseModeColor = select(colorMode.equal(1), sizeColor, 
                             select(colorMode.equal(2), velColor,
-                                select(colorMode.equal(3), densityColor, vec3(1.0))));
+                                select(colorMode.equal(3), densityColor,
+                                    select(colorMode.equal(4), speciesColor,
+                                        select(colorMode.equal(5), logScaleColor, vec3(1.0))))));
 
         // Perceptual gamma curve on saturation: human color response to
         // white-mixing is non-linear. Raw linear mix produces a slider
@@ -3003,6 +4589,11 @@ export class Engine {
         // half-saturated result instead of an almost-white one.
         const satPerceptual = sqrt(this.uniforms.sat);
         const finalColor = mix(vec3(1.0), baseModeColor, satPerceptual);
+        const displayedColor = mix(
+            finalColor,
+            vec3(1.0),
+            mul(0.85, pilotVisual)
+        );
 
         const uPos = uv().sub(0.5);
         const distCirc = length(uPos);
@@ -3015,9 +4606,15 @@ export class Engine {
         const mask = step(dist, float(0.5));
         
         const life = velFromBuf.w;
-        const fadeMod = select(this.uniforms.halfLife.lessThan(29.5), clamp(mul(life, 3.0), 0.0, 1.0), float(1.0));
+        const lifecycleFade = select(this.uniforms.halfLife.lessThan(29.5), clamp(mul(life, 3.0), 0.0, 1.0), float(1.0));
+        const vitalityFade = mix(
+            1.0,
+            add(0.2, mul(0.8, vitality)),
+            clamp(this.uniforms.predation, 0.0, 1.0)
+        );
+        const fadeMod = mul(lifecycleFade, vitalityFade);
         
-        this.material.colorNode = vec4(finalColor, mul(this.uniforms.pointOpacity, mul(mask, fadeMod)));
+        this.material.colorNode = vec4(displayedColor, mul(this.uniforms.pointOpacity, mul(mask, fadeMod)));
     }
 
     setupRibbon() {
@@ -3046,6 +4643,7 @@ export class Engine {
         const outPos = storage(this.ribbonPosStorage, 'vec4', totalVerts);
         const outCol = storage(this.ribbonColStorage, 'vec4', totalVerts);
         const U = this.uniforms;
+        const worldOffset = vec3(U.offsetX, U.offsetY, U.offsetZ);
         
         const hermitePos = Fn(([p1, p2, m1, m2, t]) => {
             const t2 = mul(t, t);
@@ -3092,12 +4690,39 @@ export class Engine {
                 const m2 = mul(sub(p3, p1), tension);
 
                 const pos = hermitePos(p1, p2, m1, m2, u);
-                const presentedPos = mul(pos, U.presentationScale);
+                const presentedCenter = scaleLensPosition(
+                    pos,
+                    U.lensFocus,
+                    U.coherence,
+                    U.zeroWidth,
+                    U.scaleLens,
+                    U.inversion,
+                    U.presentationScale
+                );
+                const presentedPos = add(presentedCenter, worldOffset);
                 const rawTan = hermiteTan(p1, p2, m1, m2, u);
-                const validTan = select(length(rawTan).greaterThan(0.0001), normalize(rawTan), vec3(0,1,0));
+                const validTan = safeDirection(
+                    rawTan,
+                    vec3(0.0, 1.0, 0.0)
+                );
 
-                const toCam = normalize(sub(U.camPos, presentedPos));
-                const norm = normalize(cross(validTan, toCam));
+                const toCam = safeDirection(
+                    sub(U.camPos, presentedPos),
+                    vec3(0.0, 0.0, 1.0)
+                );
+                const sideReference = select(
+                    abs(validTan.y).lessThan(0.9),
+                    vec3(0.0, 1.0, 0.0),
+                    vec3(1.0, 0.0, 0.0)
+                );
+                const fallbackNorm = safeDirection(
+                    cross(validTan, sideReference),
+                    vec3(1.0, 0.0, 0.0)
+                );
+                const norm = safeDirection(
+                    cross(validTan, toCam),
+                    fallbackNorm
+                );
                 // Trail half-width: thinner than particles, with a sqrt
                 // remap so growth against resolution is gentle in the
                 // upper range. Previously `pointSize * 0.5` made trails
@@ -3114,15 +4739,67 @@ export class Engine {
                 const life = mix(life1, life2, u);
                 
                 const dist = length(sub(p2, p1));
-                const distFade = clamp(sub(1.0, div(sub(dist, 60.0), 40.0)), 0.0, 1.0);
-                const baseFade = select(U.halfLife.lessThan(29.5), clamp(mul(life, 4.0), 0.0, 1.0), 1.0);
+                const rawDistFade = clamp(sub(1.0, div(sub(dist, 60.0), 40.0)), 0.0, 1.0);
+                const presentedDist = mul(
+                    dist,
+                    abs(U.presentationScale)
+                );
+                const presentedLimit = max(
+                    mul(abs(U.presentationScale), 60.0),
+                    mul(sqrt(U.pointSize), 4.0)
+                );
+                const presentedDistFade = clamp(
+                    sub(
+                        1.0,
+                        div(
+                            sub(presentedDist, presentedLimit),
+                            max(mul(presentedLimit, 0.667), 0.001)
+                        )
+                    ),
+                    0.0,
+                    1.0
+                );
+                const distFade = mul(rawDistFade, presentedDistFade);
+                const lifecycleFade = select(U.halfLife.lessThan(29.5), clamp(mul(life, 4.0), 0.0, 1.0), 1.0);
+                const vitalityFade = mix(
+                    1.0,
+                    add(0.2, mul(0.8, clamp(life, 0.0, 1.0))),
+                    clamp(U.predation, 0.0, 1.0)
+                );
+                const baseFade = mul(lifecycleFade, vitalityFade);
                 // Cap trail alpha at 10% of the system opacity slider.
                 // Previously the trails inherited 1:1 from system opacity,
                 // which made them blow out to pure white even at slider=0.05.
                 // The 0.1 ceiling means the full slider range now scales
                 // from invisible up to "what 0.1 used to look like" — a
                 // gradient that actually fits the system's natural use.
-                const fadeAlpha = mul(mul(baseFade, distFade), mul(U.pointOpacity, float(0.1)));
+                // Segment material applies System Opacity once. Keeping it
+                // out of the storage alpha avoids the former opacity-squared
+                // path that made both connection modes disappear at the
+                // values normally used for particle clouds.
+                const populationSupport = clamp(
+                    sqrt(
+                        div(
+                            25000.0,
+                            max(float(U.activeParticleCount), 25000.0)
+                        )
+                    ),
+                    0.08,
+                    1.0
+                );
+                const presentationSupport = clamp(
+                    sqrt(sqrt(clamp(abs(U.presentationScale), 0.0001, 1.0))),
+                    0.1,
+                    1.0
+                );
+                const connectionSupport = mul(
+                    populationSupport,
+                    presentationSupport
+                );
+                const fadeAlpha = mul(
+                    mul(mul(baseFade, distFade), float(0.1)),
+                    connectionSupport
+                );
 
                 const speed1 = length(vBuf.element(i1).xyz);
                 const speed2 = length(vBuf.element(i2).xyz);
@@ -3168,6 +4845,7 @@ export class Engine {
         const outPos = storage(this.latticePosStorage, 'vec4', totalVerts);
         const outCol = storage(this.latticeColStorage, 'vec4', totalVerts);
         const U = this.uniforms;
+        const worldOffset = vec3(U.offsetX, U.offsetY, U.offsetZ);
         const Nm1 = uint(N - 1);
 
         const computeLattice = Fn(() => {
@@ -3176,9 +4854,34 @@ export class Engine {
                 const i0 = select(i.greaterThan(uint(0)), sub(i, uint(1)), uint(0));
                 const i2 = select(i.lessThan(Nm1), add(i, uint(1)), Nm1);
                 const pos = pBuf.element(i).xyz;
-                const presentedPos = mul(pos, U.presentationScale);
-                const tangent = normalize(sub(pBuf.element(i2).xyz, pBuf.element(i0).xyz));
-                const norm = normalize(cross(tangent, normalize(sub(U.camPos, presentedPos))));
+                const presentedCenter = scaleLensPosition(
+                    pos,
+                    U.lensFocus,
+                    U.coherence,
+                    U.zeroWidth,
+                    U.scaleLens,
+                    U.inversion,
+                    U.presentationScale
+                );
+                const presentedPos = add(presentedCenter, worldOffset);
+                const tangent = safeDirection(
+                    sub(pBuf.element(i2).xyz, pBuf.element(i0).xyz),
+                    vec3(0.0, 1.0, 0.0)
+                );
+                const toCam = safeDirection(
+                    sub(U.camPos, presentedPos),
+                    vec3(0.0, 0.0, 1.0)
+                );
+                const sideReference = select(
+                    abs(tangent.y).lessThan(0.9),
+                    vec3(0.0, 1.0, 0.0),
+                    vec3(1.0, 0.0, 0.0)
+                );
+                const fallbackNorm = safeDirection(
+                    cross(tangent, sideReference),
+                    vec3(1.0, 0.0, 0.0)
+                );
+                const norm = safeDirection(cross(tangent, toCam), fallbackNorm);
                 // Trail half-width: thinner than particles, sqrt remap on
                 // resolution so growth against the resolution slider is
                 // gentle in the upper range. Matches the ribbon material.
@@ -3192,13 +4895,61 @@ export class Engine {
 
                 const life = vBuf.element(i).w;
                 const dist = length(sub(pBuf.element(i2).xyz, pos));
-                const distFade = clamp(sub(1.0, div(sub(dist, 60.0), 40.0)), 0.0, 1.0);
-                const baseFade = select(U.halfLife.lessThan(29.5), clamp(mul(life, 4.0), 0.0, 1.0), 1.0);
+                const rawDistFade = clamp(sub(1.0, div(sub(dist, 60.0), 40.0)), 0.0, 1.0);
+                const presentedDist = mul(
+                    dist,
+                    abs(U.presentationScale)
+                );
+                const presentedLimit = max(
+                    mul(abs(U.presentationScale), 60.0),
+                    mul(sqrt(U.pointSize), 4.0)
+                );
+                const presentedDistFade = clamp(
+                    sub(
+                        1.0,
+                        div(
+                            sub(presentedDist, presentedLimit),
+                            max(mul(presentedLimit, 0.667), 0.001)
+                        )
+                    ),
+                    0.0,
+                    1.0
+                );
+                const distFade = mul(rawDistFade, presentedDistFade);
+                const lifecycleFade = select(U.halfLife.lessThan(29.5), clamp(mul(life, 4.0), 0.0, 1.0), 1.0);
+                const vitalityFade = mix(
+                    1.0,
+                    add(0.2, mul(0.8, clamp(life, 0.0, 1.0))),
+                    clamp(U.predation, 0.0, 1.0)
+                );
+                const baseFade = mul(lifecycleFade, vitalityFade);
                 // Cap lattice alpha at 10% of the system opacity slider.
                 // Matches the ribbon material — prevents blow-out at low
                 // opacity slider values; full slider range maps to
                 // "previously 0 → 0.1" effective alpha.
-                const fadeAlpha = mul(mul(baseFade, distFade), mul(U.pointOpacity, float(0.1)));
+                const populationSupport = clamp(
+                    sqrt(
+                        div(
+                            25000.0,
+                            max(float(U.activeParticleCount), 25000.0)
+                        )
+                    ),
+                    0.08,
+                    1.0
+                );
+                const presentationSupport = clamp(
+                    sqrt(sqrt(clamp(abs(U.presentationScale), 0.0001, 1.0))),
+                    0.1,
+                    1.0
+                );
+                const connectionSupport = mul(
+                    populationSupport,
+                    presentationSupport
+                );
+                const fadeAlpha = mul(
+                    mul(mul(baseFade, distFade), float(0.1)),
+                    connectionSupport
+                );
 
                 const vel = vBuf.element(i).xyz;
                 const speed = length(vel);
@@ -3509,6 +5260,11 @@ export class Engine {
         U.viscosity.value = v('viscosity');
         U.responseMemory.value = v('responseMemory');
         U.speciesCompetition.value = v('speciesCompetition');
+        U.schooling.value = v('schooling');
+        U.speciesAgency.value = v('speciesAgency');
+        U.pilot.value = v('pilot');
+        U.analysisActive.value = this._analysisActive ? 1.0 : 0.0;
+        U.predation.value = v('predation');
         U.speciesFamilies.value = v('speciesFamilies');
         U.phaseLens.value = v('phaseLens');
         U.frequencyFamilies.value = v('frequencyFamilies');
@@ -3525,7 +5281,10 @@ export class Engine {
         U.zeroWidth.value = v('zeroWidth');
         U.homePull.value = v('homePull');
         U.worldBoundary.value = v('worldBoundary');
+        U.projectionNozzle.value = v('projectionNozzle');
         U.presentationScale.value = v('presentationScale');
+        U.scaleLens.value = v('scaleLens');
+        U.cloudLod.value = v('cloudLod');
         U.massFamilies.value = v('massFamilies');
         U.massRange.value = v('massRange');
         U.tempo.value = v('tempo');
@@ -3543,6 +5302,14 @@ export class Engine {
         if (U.offsetX) U.offsetX.value = S.offsetX;
         if (U.offsetY) U.offsetY.value = S.offsetY;
         if (U.offsetZ) U.offsetZ.value = S.offsetZ;
+        if (U.lensFocus) {
+            const presentationScale = Math.max(Math.abs(Number(v('presentationScale')) || 1), 0.000001);
+            U.lensFocus.value.set(
+                (this.cam.target.x - (Number(S.offsetX) || 0)) / presentationScale,
+                (this.cam.target.y - (Number(S.offsetY) || 0)) / presentationScale,
+                (this.cam.target.z - (Number(S.offsetZ) || 0)) / presentationScale
+            );
+        }
         if (U.billboardOffset) U.billboardOffset.value = S.billboardOffset;
         if (U.colorMode) U.colorMode.value = S.colorMode || 0;
         if (U.colorRange) U.colorRange.value = v('hue');
@@ -3553,6 +5320,7 @@ export class Engine {
         if (this.computeAssignNode) this.computeAssignNode.setCount(activeDispatchCount);
         if (this.computeNode) this.computeNode.setCount(activeDispatchCount);
         if (U.shape) U.shape.value = S.shape === 'square' ? 1 : (S.shape === 'diamond' ? 2 : 0);
+        updateAutomataMetrics();
 
         if (this.bgCanvas && v('bgGlow') > 0) {
             const mode = S.colorMode || 0;
@@ -3661,22 +5429,39 @@ export class Engine {
         this.updateReferenceGrid();
 
         const renderTempo = window.S_effective?.tempo ?? window.S.tempo;
-        if (Math.abs(renderTempo) > 0.000001) {
+        if (
+            Math.abs(renderTempo) > 0.000001
+            && !this._analysisCaptureInFlight
+        ) {
             // One eighth of a cycle per simulated second at Tempo = 1. Signed
             // Tempo reverses this clock; pausing Tempo freezes it.
             this._phaseClock = (this._phaseClock + Math.PI * 2 * 0.125 * 0.016 * renderTempo) % (Math.PI * 2);
             this.uniforms.phaseClock.value = this._phaseClock;
             try {
                 const unifiedDispatch = (window.S_effective?.unifiedDispatch ?? window.S.unifiedDispatch ?? 1) >= 0.5;
+                const pilotActive = (window.S_effective?.pilot ?? window.S.pilot ?? 0) > 0.000001;
+                const metricActive = pilotActive || !!this._analysisActive;
                 if (unifiedDispatch) {
-                    await this.renderer.computeAsync([
-                        this.computeClearNode,
-                        this.computeAssignNode,
-                        this.computeNode
-                    ]);
+                    if (metricActive) {
+                        await this.renderer.computeAsync([
+                            this.computeClearNode,
+                            this.computeAssignNode,
+                            this.computePilotNode,
+                            this.computeNode
+                        ]);
+                    } else {
+                        await this.renderer.computeAsync([
+                            this.computeClearNode,
+                            this.computeAssignNode,
+                            this.computeNode
+                        ]);
+                    }
                 } else {
                     await this.renderer.computeAsync(this.computeClearNode);
                     await this.renderer.computeAsync(this.computeAssignNode);
+                    if (metricActive) {
+                        await this.renderer.computeAsync(this.computePilotNode);
+                    }
                     await this.renderer.computeAsync(this.computeNode);
                 }
             } catch (e) {
@@ -3804,7 +5589,7 @@ export function initRadialUI() {
       { key: 'tessRibbons', label: 'Lattice', type: 'toggle' }, null,
       { key: 'trailLen', label: 'Trail Length', min: 3, max: 30, step: 1, sensitivity: 0.15, format: value => Math.round(value).toString() }, null, 
       { key: 'sat', label: 'Color Saturation', min: 0, max: 1.5, step: 0.01, sensitivity: 0.005, format: value => value.toFixed(2) },
-      { key: 'colorMode', label: 'Color Mode', type: 'enum', options: [0, 1, 2, 3], labels: ['Mono', 'Size', 'Velocity', 'Density'], sensitivity: 0.02 },
+      { key: 'colorMode', label: 'Color Mode', type: 'enum', options: [0, 1, 2, 3, 4, 5], labels: ['Mono', 'Size', 'Velocity', 'Density', 'Species', 'Log Scale'], sensitivity: 0.02 },
       { key: 'hue', label: 'Color Spectrum Range', min: 0, max: 1, step: 0.01, sensitivity: 0.005, format: value => value.toFixed(2) },
       { key: 'newWaypoint', label: 'New Waypoint', type: 'trigger', action: () => window.captureWaypoint() },
       { key: 'startTour', label: 'Start Tour', type: 'trigger', action: () => { 
@@ -4044,6 +5829,7 @@ export function initRadialUI() {
             
             if (window.engine) window.engine.updateUniforms();
             this.updateActiveNode(control); 
+            invalidateAnalysisWorkflowForKey(control.key);
 
             // Live readout toast — same as the slider's. Resolves the
             // displayed value differently for enum vs numeric controls
@@ -4078,6 +5864,7 @@ export function initRadialUI() {
             try { localStorage.setItem('ss_state', JSON.stringify(window.S)); } catch (e) { }
             if (window.engine) window.engine.updateUniforms();
             this.updateActiveNode(control);
+            invalidateAnalysisWorkflowForKey(key);
         }
 
         colorForPercent(value, alpha = 'var(--btn-alpha, 0.8)') {
@@ -5126,7 +6913,7 @@ export function setupUI(engine) {
         // Compute a target Y just above the dock, taking each panel's own
         // height into account so they don't overshoot the screen.
         // panelIds is ordered to match the dock left-to-right.
-        const panelIds = ['panelParams', 'panelSettings', 'panelAtlas', 'panelControls', 'panelConfig'];
+        const panelIds = ['panelParams', 'panelExperimental', 'panelAutomata', 'panelGeometry', 'panelSettings', 'panelAtlas', 'panelControls', 'panelConfig'];
         // Horizontal spread: stagger them across the lower-third of the
         // viewport so they're individually accessible.
         const vw = window.innerWidth;
@@ -5293,6 +7080,12 @@ export function setupUI(engine) {
 
     // UI BUILDER
     buildUI(engine);
+    initRollDiceButton();
+    initEnhanceButton();
+    initScanButton();
+    initAnalyzeButton();
+    initSignalAnalyzeButton();
+    initCompleteStudyButton();
     
     // ui-ready is NOT added here. It's added by splash dismiss (or by
     // setUIVisibility(true) later). This way the UI stays invisible behind
@@ -5511,6 +7304,9 @@ function initDock() {
 
     const dockDefs = [
         { id: 'panelParams', label: 'Params' },
+        { id: 'panelExperimental', label: 'Ψ', title: 'Experimental' },
+        { id: 'panelAutomata', label: '⠿', title: 'Automata' },
+        { id: 'panelGeometry', label: '⬡', title: 'Geometry' },
         { id: 'panelSettings', label: 'Optics' },
         { id: 'panelAtlas', label: 'Atlas' },
         { id: 'panelControls', label: 'Controls' },
@@ -5522,6 +7318,10 @@ function initDock() {
         const btn = document.createElement('button');
         btn.id = 'dock-btn-' + def.id;
         btn.className = 'dock-btn';
+        if (def.title) {
+            btn.title = def.title;
+            btn.setAttribute('aria-label', def.title);
+        }
         // Entropy button gets an inline FPS readout next to its label
         btn.innerHTML = def.isFps
             ? `<span class="dock-label">${def.label}</span><span class="dock-fps" id="dock-fps">--</span>`
@@ -5778,7 +7578,7 @@ const UNBOUND_NON_NEGATIVE_KEYS = new Set(['freeEnergy', 'resolution']);
 //     therefore never show the broken-chain indicator.
 const UNBOUND_ALWAYS_CLAMPED_KEYS = new Set([
     'referenceGrid', 'bgGlow', 'bgBlur', 'uiScanlines', 'screenScanlines',
-    'uiZoom', 'panelOpacity',
+    'uiZoom', 'panelOpacity', 'stateTransitionSeconds',
     'opacity', 'buttonOpacity', 'hue', 'sat'
 ]);
 
@@ -5837,11 +7637,16 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     const _step = Number(step);
     const _raw = Number(window.S[key]);
     const _val = Number.isFinite(_raw) ? _raw : _min;
-    // Preserve physical Coherence values while concentrating slider travel
-    // around zero. Signed coherence devotes 60% of the track to -1..1 and
-    // splits the remaining 40% between the negative and positive tails.
-    const unsignedFractionFocused = (key === 'coherence' || key === 'tempo') && _min === 0 && _max > 1;
-    const signedFractionFocused = (key === 'coherence' || key === 'tempo') && _min < -1 && _max > 1;
+    // Coherence's coarse navigator controls magnitude only. Fine and
+    // Microscope establish which signed side of zero is active; once there,
+    // the full coarse track expands cleanly from 0 to 200 on that side.
+    const coherenceMagnitudeTrack = key === 'coherence' && _min < 0 && _max > 0;
+    let coherenceCoarseSign = _val < 0 ? -1 : 1;
+    // Tempo keeps its fraction-focused response. Coherence deliberately uses
+    // a plain full-range coarse track; its two spring-centered trims provide
+    // the fine and microscopic scales without overloading one nonlinear bar.
+    const unsignedFractionFocused = key === 'tempo' && _min === 0 && _max > 1;
+    const signedFractionFocused = key === 'tempo' && _min < -1 && _max > 1;
     const fractionFocused = unsignedFractionFocused || signedFractionFocused;
     // Response Memory is perceptual in duration rather than amplitude.
     // Give each quarter of the track another decade of persistence:
@@ -5856,10 +7661,18 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     const resolutionFocused =
         (key === 'resolution' || key === 'presentationScale') &&
         _min > 0 && _max > _min;
-    const FRACTION_TRACK = key === 'tempo' ? 0.80 : 0.60;
+    // Zero Width spans three perceptually and mathematically distinct
+    // decades. Log travel gives 0.001..0.01 as much room as 0.1..1 while
+    // preserving the engine's existing finite denominator floor.
+    const zeroWidthFocused = key === 'zeroWidth' && _min > 0 && _max > _min;
+    const logarithmicTrack = resolutionFocused || zeroWidthFocused;
+    const FRACTION_TRACK = 0.80;
     const TAIL_TRACK = (1 - FRACTION_TRACK) * 0.5;
     const toTrack = (value) => {
-        if (resolutionFocused) {
+        if (coherenceMagnitudeTrack) {
+            return Math.min(Math.max(Math.abs(value), 0), Math.max(Math.abs(_min), Math.abs(_max)));
+        }
+        if (logarithmicTrack) {
             const safeValue = Math.max(_min, Math.min(_max, value));
             return Math.log(safeValue / _min) / Math.log(_max / _min);
         }
@@ -5877,7 +7690,10 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
         return FRACTION_TRACK + ((value - 1) / (_max - 1)) * (1 - FRACTION_TRACK);
     };
     const fromTrack = (position) => {
-        if (resolutionFocused) {
+        if (coherenceMagnitudeTrack) {
+            return coherenceCoarseSign * Math.max(0, Number(position));
+        }
+        if (logarithmicTrack) {
             return _min * Math.pow(_max / _min, Math.max(0, Math.min(1, position)));
         }
         if (memoryFocused) {
@@ -5894,9 +7710,11 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
         if (position <= FRACTION_TRACK) return position / FRACTION_TRACK;
         return 1 + ((position - FRACTION_TRACK) / (1 - FRACTION_TRACK)) * (_max - 1);
     };
-    const focusedTrack = fractionFocused || memoryFocused || resolutionFocused;
-    const trackMin = focusedTrack ? 0 : _min;
-    const trackMax = focusedTrack ? 1 : _max;
+    const focusedTrack = fractionFocused || memoryFocused || logarithmicTrack;
+    const trackMin = coherenceMagnitudeTrack ? 0 : focusedTrack ? 0 : _min;
+    const trackMax = coherenceMagnitudeTrack
+        ? Math.max(Math.abs(_min), Math.abs(_max))
+        : focusedTrack ? 1 : _max;
     const trackStep = focusedTrack ? 0.0005 : _step;
     const pct = ((toTrack(_val) - trackMin) / (trackMax - trackMin)) * 100;
     const d = document.createElement('div');
@@ -5908,9 +7726,20 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     // Chrome/appearance keys stay clamped even in Unbound, so no flag.
     if (!UNBOUND_ALWAYS_CLAMPED_KEYS.has(key)) d.dataset.unboundable = '1';
     if ((window.S[key + '_mod'] || 0) > 0.001) d.dataset.modulating = 'true';
-    const fmtVal = (v) => key === 'responseMemory'
-        ? (v >= 0.99 ? v.toFixed(4) : v.toFixed(3))
-        : Math.abs(v) < 1 ? v.toFixed(3) : Math.abs(v) < 100 ? Number(v).toFixed(1) : Math.round(v);
+    const fmtVal = (v) => {
+        if (key === 'responseMemory') {
+            return v >= 0.99 ? v.toFixed(4) : v.toFixed(3);
+        }
+        if (key === 'coherence') {
+            const magnitude = Math.abs(v);
+            if (magnitude < 0.1) return v.toFixed(5);
+            if (magnitude < 1) return v.toFixed(4);
+            if (magnitude < 10) return v.toFixed(3);
+            if (magnitude < 100) return v.toFixed(2);
+            return v.toFixed(1);
+        }
+        return Math.abs(v) < 1 ? v.toFixed(3) : Math.abs(v) < 100 ? Number(v).toFixed(1) : Math.round(v);
+    };
 
     d.innerHTML = `
         <div class="label">
@@ -5926,35 +7755,40 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
 
     const inp = d.querySelector('input');
     const valSpan = d.querySelector('.val');
-    let fineInp = null;
-    let fineDelta = null;
-    let fineMarker = null;
-    let fineAnchor = _val;
-    let fineDriving = false;
-    let fineControl = null;
+    const coherenceTrims = [];
     if (key === 'coherence') {
         d.classList.add('has-fine-control');
-        fineControl = document.createElement('div');
-        fineControl.className = 'coherence-fine';
-        fineControl.innerHTML = `
-            <span class="coherence-fine-label">Fine &plusmn;1</span>
-            <div class="coherence-fine-track"><i style="--p:50%"></i>
-                <input type="range" min="-1" max="1" step="0.001" value="0"
-                    aria-label="Coherence Fine" aria-valuetext="0.000">
-            </div>
-            <span class="coherence-fine-delta">0.000</span>
-        `;
-        fineInp = fineControl.querySelector('input');
-        fineDelta = fineControl.querySelector('.coherence-fine-delta');
-        fineMarker = fineControl.querySelector('.coherence-fine-track i');
+        [
+            { name: 'Fine', range: 1, step: 0.001, digits: 3 },
+            { name: 'Microscope', range: 0.01, step: 0.00001, digits: 5 }
+        ].forEach(spec => {
+            const control = document.createElement('div');
+            control.className = 'coherence-trim';
+            control.innerHTML = `
+                <span class="coherence-trim-label">${spec.name} &plusmn;${spec.range}</span>
+                <div class="coherence-trim-track"><i style="--p:50%"></i>
+                    <input type="range" min="${-spec.range}" max="${spec.range}" step="${spec.step}" value="0"
+                        aria-label="Coherence ${spec.name}" aria-valuetext="${(0).toFixed(spec.digits)}">
+                </div>
+                <span class="coherence-trim-delta">${(0).toFixed(spec.digits)}</span>
+            `;
+            coherenceTrims.push({
+                ...spec,
+                control,
+                input: control.querySelector('input'),
+                delta: control.querySelector('.coherence-trim-delta'),
+                marker: control.querySelector('.coherence-trim-track i'),
+                anchor: _val,
+                driving: false
+            });
+        });
     }
-    const syncFineControl = (delta = 0) => {
-        if (!fineInp) return;
-        const safeDelta = Math.max(-1, Math.min(1, Number(delta) || 0));
-        fineInp.value = safeDelta;
-        fineInp.setAttribute('aria-valuetext', safeDelta.toFixed(3));
-        fineDelta.textContent = (safeDelta > 0 ? '+' : '') + safeDelta.toFixed(3);
-        fineMarker.style.setProperty('--p', ((safeDelta + 1) * 50) + '%');
+    const syncCoherenceTrim = (trim, delta = 0) => {
+        const safeDelta = Math.max(-trim.range, Math.min(trim.range, Number(delta) || 0));
+        trim.input.value = safeDelta;
+        trim.input.setAttribute('aria-valuetext', safeDelta.toFixed(trim.digits));
+        trim.delta.textContent = (safeDelta > 0 ? '+' : '') + safeDelta.toFixed(trim.digits);
+        trim.marker.style.setProperty('--p', (((safeDelta + trim.range) / (trim.range * 2)) * 100) + '%');
     };
     const applyMassSpectrumGradient = () => {
         if (key !== 'massRange') return;
@@ -5990,6 +7824,9 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     inp.setAttribute('aria-label', label);
     inp.setAttribute('aria-valuetext', fmtVal(_val));
     sliderSync[key] = (val) => {
+        if (coherenceMagnitudeTrack && Math.abs(Number(val)) > 1e-12) {
+            coherenceCoarseSign = Number(val) < 0 ? -1 : 1;
+        }
         const trackValue = toTrack(val);
         inp.value = trackValue;
         inp.setAttribute('aria-valuetext', fmtVal(val));
@@ -6005,13 +7842,14 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
         if (key === 'massFamilies' && window.refreshMassSpectrumGradient) {
             window.refreshMassSpectrumGradient();
         }
-        // Programmatic or coarse changes establish a new fine-adjustment
-        // center. While the fine control itself is driving, preserve its
-        // anchor so the +/-1 window stays stable throughout the gesture.
-        if (fineInp && !fineDriving) {
-            fineAnchor = Number(val);
-            syncFineControl(0);
-        }
+        // Any other coherence input recenters each idle trim on the new
+        // physical value. The trim currently driving keeps its gesture
+        // anchor, while the other magnification follows along.
+        coherenceTrims.forEach(trim => {
+            if (trim.driving) return;
+            trim.anchor = Number(val);
+            syncCoherenceTrim(trim, 0);
+        });
         if (cb) cb(val);
     };
 
@@ -6034,43 +7872,57 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
         if (!isProgrammatic && window.showParamToast) {
             window.showParamToast(label, fmtVal(window.S[key]));
         }
+        if (!isProgrammatic) {
+            invalidateAnalysisWorkflowForKey(key);
+        }
         // Tour only cancels on changes to params it animates.
         if (!isProgrammatic && window.tour && window.tour.active && TOUR_STOPPING_KEYS.has(key)) window.stopTour();
         if (window.refreshRadialUI) window.refreshRadialUI();
         try { localStorage.setItem('ss_state', JSON.stringify(window.S)) } catch (e) { }
     };
 
+    // Phase Lens has a physical off state, so direct manipulation gets a
+    // small center detent. Typed values, modulation, and restored states keep
+    // their exact numbers; only hands-on slider/scrub gestures snap.
+    const applyDirectDetent = (value) => (
+        key === 'phaseLens' && Math.abs(value) < 0.04 ? 0 : value
+    );
+
     inp.addEventListener('input', e => {
-        if (e.isTrusted) updateVal(fromTrack(Number(e.target.value)), false);
+        if (e.isTrusted) {
+            updateVal(applyDirectDetent(fromTrack(Number(e.target.value))), false);
+        }
     });
-    if (fineInp) {
-        fineInp.addEventListener('pointerdown', () => {
-            fineAnchor = Number(window.S[key]);
-            syncFineControl(0);
+    coherenceTrims.forEach(trim => {
+        trim.input.addEventListener('pointerdown', () => {
+            trim.anchor = Number(window.S[key]);
+            syncCoherenceTrim(trim, 0);
         });
-        fineInp.addEventListener('input', e => {
+        trim.input.addEventListener('input', e => {
             if (!e.isTrusted) return;
             const delta = Number(e.target.value);
-            fineDriving = true;
-            const adjusted = clampForBoundlessMode(key, fineAnchor + delta, _min, _max);
+            trim.driving = true;
+            const adjusted = clampForBoundlessMode(key, trim.anchor + delta, _min, _max);
             updateVal(adjusted, false);
-            syncFineControl(delta);
-            fineDriving = false;
+            syncCoherenceTrim(trim, delta);
+            trim.driving = false;
         });
-        // Treat Fine as a spring-centered trim. Committing the gesture moves
-        // the anchor to the resulting coherence and returns the marker to
-        // zero, ready for another precise +/-1 pass.
-        fineInp.addEventListener('change', () => {
-            fineAnchor = Number(window.S[key]);
-            syncFineControl(0);
+        // Each trim is spring-centered. Releasing it commits the result,
+        // moves its anchor there, and returns the marker to zero for another
+        // pass at the same magnification.
+        trim.input.addEventListener('change', () => {
+            trim.anchor = Number(window.S[key]);
+            syncCoherenceTrim(trim, 0);
         });
-    }
+    });
     d.addEventListener('wheel', e => {
         // Wheel-scrub is range-clamped (bounded gesture, no "past edge" signal).
         // Typed entry and drag-scrub allow out-of-range — stronger intent.
         e.preventDefault();
         const stepDist = (step || (max - min) / 100) * 5;
-        const newVal = Math.max(min, Math.min(max, window.S[key] - Math.sign(e.deltaY) * stepDist));
+        const newVal = applyDirectDetent(
+            Math.max(min, Math.min(max, window.S[key] - Math.sign(e.deltaY) * stepDist))
+        );
         inp.value = newVal;
         updateVal(newVal, false);
     }, { passive: false });
@@ -6128,7 +7980,9 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
         // so users can't accidentally crank a value into a regime that
         // crashes the engine. A small set of keys are floored at 0 even
         // in unbound mode — see NON_NEGATIVE_KEYS for the reasoning.
-        const clamped = clampForBoundlessMode(key, newVal, _min, _max);
+        const clamped = applyDirectDetent(
+            clampForBoundlessMode(key, newVal, _min, _max)
+        );
         updateVal(clamped, false);
     };
 
@@ -6204,7 +8058,7 @@ function makeSlider(p, label, subhead, ll, lr, key, min, max, step, cb) {
     valSpan.addEventListener('blur', commit);
 
     p.appendChild(d);
-    if (fineControl) p.appendChild(fineControl);
+    coherenceTrims.forEach(trim => p.appendChild(trim.control));
     return d;
 }
 
@@ -6335,6 +8189,8 @@ function makeGroupToggles(p, items) {
                 });
                 if (window.refreshRadialUI) window.refreshRadialUI();
                 try { localStorage.setItem('ss_state', JSON.stringify(window.S)) } catch (e) { }
+                invalidateAnalysisWorkflowForKey(itm.key);
+                invalidateAnalysisWorkflowForKey(itm.visibilityKey);
                 return;
             }
 
@@ -6363,6 +8219,7 @@ function makeGroupToggles(p, items) {
             else {
                 window.S[itm.key] = !wasOn;
             }
+            invalidateAnalysisWorkflowForKey(itm.key);
 
             // Only cancel an active tour if this toggle actually affects what
             // the tour is animating. Theme switches, button-shape changes,
@@ -6409,6 +8266,1852 @@ function syncTogglesFromState() {
     }
 }
 window.syncTogglesFromState = syncTogglesFromState;
+
+// The four inspection buttons describe work performed on one particular
+// coordinate field. Their checks are intentionally session-only: a new roll
+// or a user edit to the field invalidates the measurements, while purely
+// optical edits (color, presentation scale, particle size, camera) do not.
+const ANALYSIS_WORKFLOW_BUTTONS = Object.freeze({
+    extents: 'enhanceButton',
+    observe: 'scanButton',
+    scan: 'analyzeButton',
+    analyze: 'signalAnalyzeButton'
+});
+
+const SESSION_STARTING_CREDITS = 100;
+const DICE_ROLL_COST = 100;
+const DICE_DISCOVERY_BONUS = 0.10;
+
+const STUDY_ARCHIVE_KEY = 'ss_study_archive_v1';
+const STUDY_SCHEMA_VERSION = 1;
+
+const SIGNAL_WORKFLOW_KEYS = new Set([
+    'tempo', 'freeEnergy', 'halfLife', 'coherence', 'equilibrium',
+    'temperature', 'viscosity', 'inversion', 'scaleDepth', 'mass',
+    'spatialInversion', 'zeroWidth', 'exclusion', 'homePull',
+    'responseMemory', 'momentumCoupling', 'phaseLens', 'phaseCoupling',
+    'phaseForce', 'frequencyFamilies', 'frequencySpread', 'spinor',
+    'mobiusTwist', 'massFamilies', 'massRange', 'speciesCompetition',
+    'schooling', 'speciesAgency', 'pilot', 'predation', 'speciesFamilies',
+    'projectionNozzle', 'worldBoundary'
+]);
+
+function isSignalWorkflowKey(key) {
+    if (!key) return false;
+    if (SIGNAL_WORKFLOW_KEYS.has(key)) return true;
+    return key.endsWith('_mod')
+        && SIGNAL_WORKFLOW_KEYS.has(key.slice(0, -4));
+}
+
+function getSessionCredits() {
+    if (!Number.isFinite(window._sessionCredits)) {
+        window._sessionCredits = SESSION_STARTING_CREDITS;
+    }
+    return Math.max(0, Math.round(window._sessionCredits));
+}
+
+function syncSessionCreditsUI(animate = false) {
+    const credits = getSessionCredits();
+    const score = document.getElementById('sessionScore');
+    const value = document.getElementById('sessionCreditValue');
+    const rollButton = document.getElementById('rollDiceButton');
+    if (value) value.textContent = credits.toLocaleString();
+    if (score && animate) {
+        score.classList.remove('credit-change');
+        void score.offsetWidth;
+        score.classList.add('credit-change');
+        window.setTimeout(() => score.classList.remove('credit-change'), 540);
+    }
+    if (rollButton) {
+        rollButton.textContent = `Roll Dice \u00b7 ${DICE_ROLL_COST}`;
+        rollButton.disabled = credits < DICE_ROLL_COST;
+        rollButton.title = rollButton.disabled
+            ? `${DICE_ROLL_COST - credits} more credits needed for Roll Dice`
+            : `Spend ${DICE_ROLL_COST} credits to randomize expressive controls; performance and admin settings stay fixed`;
+    }
+    return credits;
+}
+
+function awardSessionCredits(amount) {
+    const award = Math.max(0, Math.round(Number(amount) || 0));
+    if (award <= 0) return getSessionCredits();
+    window._sessionCredits = getSessionCredits() + award;
+    return syncSessionCreditsUI(true);
+}
+
+function spendSessionCredits(amount) {
+    const cost = Math.max(0, Math.round(Number(amount) || 0));
+    const credits = getSessionCredits();
+    if (credits < cost) return false;
+    window._sessionCredits = credits - cost;
+    syncSessionCreditsUI(true);
+    return true;
+}
+
+function resetAnalysisWorkflow(origin = 'manual') {
+    window._analysisWorkflowRevision = (window._analysisWorkflowRevision || 0) + 1;
+    window._analysisWorkflowPoints = 0;
+    window._analysisWorkflowOrigin = origin === 'dice' ? 'dice' : 'manual';
+    Object.values(ANALYSIS_WORKFLOW_BUTTONS).forEach(id => {
+        document.getElementById(id)?.classList.remove('workflow-complete');
+    });
+    window._latestCoherenceResult = null;
+    window._latestCoherenceResultRevision = null;
+    window._analysisResultWaypoint = null;
+    const completeButton = document.getElementById('completeStudyButton');
+    if (completeButton) {
+        completeButton.disabled = true;
+        completeButton.classList.remove('study-saved');
+        delete completeButton.dataset.savedRevision;
+    }
+    const submitPanel = document.getElementById('studySubmitPanel');
+    if (submitPanel) submitPanel.hidden = true;
+    setAnalysisReadout('');
+    return window._analysisWorkflowRevision;
+}
+
+function markAnalysisWorkflowStep(step, revision = window._analysisWorkflowRevision || 0) {
+    if (revision !== (window._analysisWorkflowRevision || 0)) return false;
+    const id = ANALYSIS_WORKFLOW_BUTTONS[step];
+    if (!id) return false;
+    const button = document.getElementById(id);
+    if (!button) return false;
+    // One award per distinct completed stage. Re-running a stage remains
+    // useful, but cannot be farmed for points before the next field reset.
+    const firstCompletion = !button.classList.contains('workflow-complete');
+    if (firstCompletion) {
+        window._analysisWorkflowPoints = (window._analysisWorkflowPoints || 0) + 10;
+        awardSessionCredits(10);
+    }
+    button.classList.add('workflow-complete');
+    if (step === 'analyze') syncCompleteStudyButton();
+    return firstCompletion;
+}
+
+function invalidateAnalysisWorkflowForKey(key) {
+    if (!isSignalWorkflowKey(key)) return false;
+    resetAnalysisWorkflow(window._analysisWorkflowOrigin || 'manual');
+    if (window._coherenceAnalysis) cancelCoherenceAnalysis(true, true);
+    window._signalAnalysisRequestId = (window._signalAnalysisRequestId || 0) + 1;
+    return true;
+}
+
+window.resetAnalysisWorkflow = resetAnalysisWorkflow;
+window.markAnalysisWorkflowStep = markAnalysisWorkflowStep;
+window.syncSessionCreditsUI = syncSessionCreditsUI;
+
+function loadStudyArchive() {
+    try {
+        const raw = localStorage.getItem(STUDY_ARCHIVE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter(record => (
+            record
+            && typeof record === 'object'
+            && typeof record.id === 'string'
+        ));
+    } catch (error) {
+        console.warn('[STUDY] Could not read local archive.', error);
+        return [];
+    }
+}
+
+function saveStudyArchive(records) {
+    try {
+        localStorage.setItem(STUDY_ARCHIVE_KEY, JSON.stringify(records));
+        return records;
+    } catch (error) {
+        // Compact previews are the only bulky part of a study record. If the
+        // browser quota is full, preserve every measurement and note while
+        // retaining the newest visual evidence.
+        const newestIndex = records.length - 1;
+        const compact = records.map((record, index) => {
+            if (index === newestIndex || !record?.visual?.previewDataUrl) return record;
+            return {
+                ...record,
+                visual: {
+                    ...record.visual,
+                    previewDataUrl: null,
+                    previewOmittedFromLocalArchive: true
+                }
+            };
+        });
+        try {
+            localStorage.setItem(STUDY_ARCHIVE_KEY, JSON.stringify(compact));
+            return compact;
+        } catch (compactError) {
+            console.warn('[STUDY] Could not append to local archive.', compactError);
+            throw compactError;
+        }
+    }
+}
+
+function studyVector(value) {
+    if (value && typeof value.toArray === 'function') {
+        return value.toArray().map(component => (
+            Number.isFinite(Number(component)) ? Number(component) : 0
+        ));
+    }
+    if (Array.isArray(value)) {
+        return value.map(component => (
+            Number.isFinite(Number(component)) ? Number(component) : 0
+        ));
+    }
+    return null;
+}
+
+function studyNumber(value, fallback = 0) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function captureStudyOptics() {
+    return {
+        colorMode: window.S.colorMode,
+        hue: window.S.hue,
+        sat: window.S.sat,
+        lightness: window.S.lightness,
+        opacity: window.S.opacity,
+        tempo: window.S.tempo,
+        trailLen: window.S.trailLen,
+        bgGlow: window.S.bgGlow,
+        bgBlur: window.S.bgBlur,
+        offsetX: window.S.offsetX,
+        offsetY: window.S.offsetY,
+        offsetZ: window.S.offsetZ,
+        billboardOffset: window.S.billboardOffset,
+        showParticles: window.S.showParticles !== false,
+        showRibbons: !!window.S.showRibbons,
+        tessRibbons: !!window.S.tessRibbons,
+        shape: window.S.shape || 'circle',
+        mods: captureModState()
+    };
+}
+
+function captureStudyCamera(engine) {
+    if (!engine?.cam) return null;
+    return {
+        distance: studyNumber(engine.cam.dist),
+        distanceTarget: studyNumber(engine.cam.distTarget, studyNumber(engine.cam.dist)),
+        position: studyVector(engine.cam.pos),
+        quaternion: studyVector(engine.cam.quat),
+        target: studyVector(engine.cam.target)
+    };
+}
+
+function captureStudyPreview(engine) {
+    if (!engine?.canvas) return null;
+    try {
+        const source = engine.canvas;
+        const width = 360;
+        const height = Math.max(1, Math.round(width * source.height / Math.max(1, source.width)));
+        const preview = document.createElement('canvas');
+        preview.width = width;
+        preview.height = height;
+        const context = preview.getContext('2d');
+        if (!context) return null;
+        if (window.S.includeScreenshotBg) {
+            paintBackgroundLayer(context, width, height);
+        } else {
+            context.fillStyle = '#040410';
+            context.fillRect(0, 0, width, height);
+        }
+        context.drawImage(source, 0, 0, width, height);
+        if (window.S.includeScreenshotScanlines) {
+            const alpha = Math.max(0, Math.min(0.5, window.S.screenScanlines ?? 0));
+            if (alpha > 0.001) {
+                context.save();
+                context.globalAlpha = alpha;
+                context.fillStyle = (window.S.theme || 'synthesist') === 'synthesist'
+                    ? 'rgb(255,200,130)'
+                    : 'rgb(220,230,255)';
+                for (let y = 0; y < height; y += 2) {
+                    context.fillRect(0, y, width, 1);
+                }
+                context.restore();
+            }
+        }
+        return {
+            mimeType: 'image/jpeg',
+            width,
+            height,
+            previewDataUrl: preview.toDataURL('image/jpeg', 0.72)
+        };
+    } catch (error) {
+        console.warn('[STUDY] Visual preview capture failed.', error);
+        return null;
+    }
+}
+
+function captureStudyAnalysis(result) {
+    const spectrum = result?.spectrum || {};
+    const powers = (Array.isArray(spectrum.powers) || ArrayBuffer.isView(spectrum.powers))
+        ? Array.from(spectrum.powers, value => studyNumber(value))
+        : [];
+    const spatialSignal = (
+        Array.isArray(spectrum.spatialSignal)
+        || ArrayBuffer.isView(spectrum.spatialSignal)
+    )
+        ? Array.from(spectrum.spatialSignal, value => studyNumber(value))
+        : [];
+    return {
+        centroid: studyVector(result?.centroid),
+        axis: studyVector(result?.axis),
+        meanFlow: studyNumber(result?.meanFlow),
+        agreementStrength: studyNumber(result?.coherenceScore),
+        authorityFloor: studyNumber(result?.authorityFloor),
+        dominantScaleOctave: studyNumber(result?.dominantScaleOctave),
+        dominantScaleRatio: studyNumber(result?.dominantScaleRatio),
+        coherentSpanSsu: studyNumber(result?.spanSsu),
+        flowAlignment: studyNumber(result?.flowAlignment),
+        sensorCount: Math.max(0, Math.round(studyNumber(result?.sensorCount))),
+        pathCount: Math.max(0, Math.round(studyNumber(result?.pathCount))),
+        ssuWorldUnits: studyNumber(result?.ssu),
+        coherence: studyNumber(result?.coherence),
+        coherenceActivity: studyNumber(result?.coherenceActivity),
+        scaleDepthOctaves: Math.max(
+            0,
+            -Math.log2(Math.max(1e-12, studyNumber(result?.ssu, 1)))
+        ),
+        spectrum: {
+            bins: Math.max(0, Math.round(studyNumber(spectrum.bins))),
+            signalClass: typeof spectrum.signalClass === 'string'
+                ? spectrum.signalClass.slice(0, 120)
+                : 'unclassified signal',
+            dominantMode: Math.max(0, Math.round(studyNumber(spectrum.dominantMode))),
+            dominantWavelengthSsu: studyNumber(spectrum.dominantWavelengthSsu),
+            spectralCentroid: studyNumber(spectrum.spectralCentroid),
+            spectralConcentration: studyNumber(spectrum.spectralConcentration),
+            spectralFlatness: studyNumber(spectrum.spectralFlatness),
+            harmonicity: studyNumber(spectrum.harmonicity),
+            spatialSignal,
+            powers
+        },
+        score: {
+            signal: Math.max(0, Math.round(studyNumber(result?.discoveryScore))),
+            exploration: Math.max(0, Math.round(studyNumber(result?.explorationPoints))),
+            rollBonus: Math.max(0, Math.round(studyNumber(result?.rollBonusPoints))),
+            curation: Math.max(0, Math.round(studyNumber(result?.curationPoints))),
+            total: Math.max(
+                0,
+                Math.round(studyNumber(
+                    result?.totalDiscoveryPoints,
+                    studyNumber(result?.discoveryScore)
+                    + studyNumber(result?.explorationPoints)
+                    + studyNumber(result?.rollBonusPoints)
+                    + studyNumber(result?.curationPoints)
+                ))
+            )
+        }
+    };
+}
+
+function studyLogRatioDistance(fromValue, toValue, octaveRange = 8) {
+    const from = Math.max(1e-9, Math.abs(studyNumber(fromValue, 1)));
+    const to = Math.max(1e-9, Math.abs(studyNumber(toValue, from)));
+    return Math.min(1, Math.abs(Math.log2(to / from)) / Math.max(1, octaveRange));
+}
+
+function studyArrayDistance(fromValue, toValue) {
+    const from = studyVector(fromValue);
+    const to = studyVector(toValue);
+    if (!from || !to || from.length < 3 || to.length < 3) return 0;
+    const dx = to[0] - from[0];
+    const dy = to[1] - from[1];
+    const dz = to[2] - from[2];
+    return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+function studyQuaternionAngle(fromValue, toValue) {
+    const from = studyVector(fromValue);
+    const to = studyVector(toValue);
+    if (!from || !to || from.length < 4 || to.length < 4) return 0;
+    const fromLength = Math.hypot(from[0], from[1], from[2], from[3]);
+    const toLength = Math.hypot(to[0], to[1], to[2], to[3]);
+    if (fromLength <= 1e-9 || toLength <= 1e-9) return 0;
+    const dot = Math.abs(
+        (
+            from[0] * to[0]
+            + from[1] * to[1]
+            + from[2] * to[2]
+            + from[3] * to[3]
+        ) / (fromLength * toLength)
+    );
+    return 2 * Math.acos(Math.min(1, Math.max(-1, dot)));
+}
+
+function studyHueDistance(fromValue, toValue) {
+    const from = ((studyNumber(fromValue) % 1) + 1) % 1;
+    const to = ((studyNumber(toValue) % 1) + 1) % 1;
+    const delta = Math.abs(to - from);
+    return Math.min(delta, 1 - delta) * 2;
+}
+
+function measureStudyCuration(analyzed, submitted, result) {
+    const fromParams = analyzed?.params || {};
+    const toParams = submitted?.params || {};
+    const fromOptics = analyzed?.optics || {};
+    const toOptics = submitted?.optics || {};
+    const fromCamera = analyzed?.camera || {};
+    const toCamera = submitted?.camera || {};
+    const ssu = Math.max(1e-9, Math.abs(studyNumber(result?.ssu, 1)));
+
+    const presentationOctaves = Math.abs(Math.log2(
+        Math.max(1e-9, Math.abs(studyNumber(toParams.presentationScale, 1)))
+        / Math.max(1e-9, Math.abs(studyNumber(fromParams.presentationScale, 1)))
+    ));
+    const resolutionOctaves = Math.abs(Math.log2(
+        Math.max(1e-9, Math.abs(studyNumber(toParams.resolution, 1)))
+        / Math.max(1e-9, Math.abs(studyNumber(fromParams.resolution, 1)))
+    ));
+    const cameraZoomOctaves = Math.abs(Math.log2(
+        Math.max(1e-9, Math.abs(studyNumber(toCamera.distance, 1)))
+        / Math.max(1e-9, Math.abs(studyNumber(fromCamera.distance, 1)))
+    ));
+    const cameraRotationRadians = studyQuaternionAngle(
+        fromCamera.quaternion,
+        toCamera.quaternion
+    );
+    const targetShiftSsu = studyArrayDistance(
+        fromCamera.target,
+        toCamera.target
+    ) / ssu;
+    const positionShiftSsu = studyArrayDistance(
+        fromCamera.position,
+        toCamera.position
+    ) / ssu;
+    const scaleLensDelta = Math.min(
+        1,
+        Math.abs(
+            studyNumber(toParams.scaleLens)
+            - studyNumber(fromParams.scaleLens)
+        )
+    );
+    const opacityDelta = Math.min(
+        1,
+        Math.abs(
+            studyNumber(toOptics.opacity, 1)
+            - studyNumber(fromOptics.opacity, 1)
+        )
+    );
+    const hueTurnDelta = studyHueDistance(fromOptics.hue, toOptics.hue);
+
+    const components = {
+        presentation: studyLogRatioDistance(
+            fromParams.presentationScale,
+            toParams.presentationScale,
+            10
+        ),
+        resolution: studyLogRatioDistance(
+            fromParams.resolution,
+            toParams.resolution,
+            10
+        ),
+        scaleLens: scaleLensDelta,
+        cameraZoom: Math.min(1, cameraZoomOctaves / 8),
+        cameraOrbit: Math.min(1, cameraRotationRadians / Math.PI),
+        cameraTarget: Math.min(1, Math.log2(1 + targetShiftSsu) / 8),
+        cameraPosition: Math.min(1, Math.log2(1 + positionShiftSsu) / 10),
+        opacity: opacityDelta,
+        hue: hueTurnDelta
+    };
+    const normalizedDistance = Math.min(
+        1,
+        components.presentation * 0.22
+        + components.resolution * 0.15
+        + components.scaleLens * 0.12
+        + components.cameraZoom * 0.14
+        + components.cameraOrbit * 0.14
+        + components.cameraTarget * 0.11
+        + components.cameraPosition * 0.07
+        + components.opacity * 0.03
+        + components.hue * 0.02
+    );
+    const curveMaximum = 1 - Math.exp(-2.2);
+    const curvedDistance = normalizedDistance > 0
+        ? (1 - Math.exp(-2.2 * normalizedDistance)) / curveMaximum
+        : 0;
+    const points = 10 + Math.round(90 * curvedDistance);
+
+    return {
+        points,
+        normalizedDistance,
+        components,
+        facts: {
+            presentationOctaves,
+            resolutionOctaves,
+            scaleLensDelta,
+            cameraZoomOctaves,
+            cameraRotationDegrees: cameraRotationRadians * 180 / Math.PI,
+            targetShiftSsu,
+            positionShiftSsu,
+            opacityDelta,
+            hueTurnDelta
+        }
+    };
+}
+
+function buildStudyRecord(note = '') {
+    const result = window._latestCoherenceResult;
+    const analyzed = window._analysisResultWaypoint;
+    const engine = window.engine;
+    if (!result?.spectrum || !analyzed || !engine) return null;
+
+    const analyzedParams = { ...(analyzed.params || captureParamState()) };
+    const submittedParams = captureParamState();
+    const submittedOptics = captureStudyOptics();
+    const submittedCamera = captureStudyCamera(engine);
+    const analyzedCamera = {
+        distance: studyNumber(analyzed.camDist),
+        position: studyVector(analyzed.camPosArr),
+        quaternion: studyVector(analyzed.camQuatArr),
+        target: studyVector(analyzed.camTargetArr)
+    };
+    const curation = measureStudyCuration(
+        {
+            params: analyzedParams,
+            optics: analyzed.optics || {},
+            camera: analyzedCamera
+        },
+        {
+            params: submittedParams,
+            optics: submittedOptics,
+            camera: submittedCamera
+        },
+        result
+    );
+    result.curationPoints = curation.points;
+    result.totalDiscoveryPoints = Math.max(
+        0,
+        Math.round(studyNumber(result.discoveryScore))
+        + Math.round(studyNumber(result.explorationPoints))
+        + Math.round(studyNumber(result.rollBonusPoints))
+        + curation.points
+    );
+    const completedAt = new Date();
+    const workflow = {};
+    Object.entries(ANALYSIS_WORKFLOW_BUTTONS).forEach(([step, id]) => {
+        workflow[step] = !!document.getElementById(id)?.classList.contains('workflow-complete');
+    });
+
+    return {
+        schemaVersion: STUDY_SCHEMA_VERSION,
+        analysisVersion: 1,
+        id: `study_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        completedAt: completedAt.toISOString(),
+        buildVersion: String(window.SS_VERSION || SS_VERSION || '0.1'),
+        author: {
+            id: window.profile?.id || '',
+            name: window.profile?.username || ''
+        },
+        note: String(note || '').trim().slice(0, 2000),
+        coordinate: {
+            coordId: coordHash(analyzedParams),
+            params: analyzedParams,
+            mods: { ...(analyzed.optics?.mods || captureModState()) }
+        },
+        analyzedView: {
+            optics: { ...(analyzed.optics || {}) },
+            camera: analyzedCamera
+        },
+        submittedView: {
+            params: submittedParams,
+            optics: submittedOptics,
+            camera: submittedCamera
+        },
+        workflow: {
+            revision: window._analysisWorkflowRevision || 0,
+            origin: window._analysisWorkflowOrigin || 'manual',
+            completed: workflow,
+            points: Math.max(0, Math.round(window._analysisWorkflowPoints || 0))
+        },
+        analysis: captureStudyAnalysis(result),
+        curation,
+        visual: captureStudyPreview(engine)
+    };
+}
+
+function downloadStudyArchive(records) {
+    const payload = {
+        schemaVersion: STUDY_SCHEMA_VERSION,
+        exportedAt: new Date().toISOString(),
+        exportedFrom: 'scale-space-synth-study',
+        buildVersion: String(window.SS_VERSION || SS_VERSION || '0.1'),
+        recordCount: records.length,
+        totalAwardedPoints: records.reduce(
+            (sum, record) => sum + Math.max(
+                0,
+                Math.round(studyNumber(record?.analysis?.score?.total))
+            ),
+            0
+        ),
+        records
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: 'application/json'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const now = new Date();
+    const pad = value => String(value).padStart(2, '0');
+    const stamp = now.getFullYear()
+        + '-' + pad(now.getMonth() + 1)
+        + '-' + pad(now.getDate())
+        + 'T' + pad(now.getHours())
+        + '-' + pad(now.getMinutes())
+        + '-' + pad(now.getSeconds());
+    link.href = url;
+    link.download = `scalespace-study-${stamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return link.download;
+}
+
+function updateStudyArchiveCount(records = loadStudyArchive()) {
+    const count = records.length;
+    const label = document.getElementById('studyArchiveCount');
+    if (label) label.textContent = `${count} ${count === 1 ? 'finding' : 'findings'} saved`;
+    return count;
+}
+
+function syncCompleteStudyButton() {
+    const button = document.getElementById('completeStudyButton');
+    if (!button) return;
+    const revision = String(window._analysisWorkflowRevision || 0);
+    const alreadySaved = button.dataset.savedRevision === revision;
+    const analyzed = !!(
+        window._latestCoherenceResult?.spectrum
+        && window._analysisResultWaypoint
+        && document.getElementById(ANALYSIS_WORKFLOW_BUTTONS.analyze)
+            ?.classList.contains('workflow-complete')
+    );
+    button.disabled = !analyzed || alreadySaved;
+    button.classList.toggle('study-saved', alreadySaved);
+}
+
+function closeStudySubmitPanel(clearNote = false) {
+    const panel = document.getElementById('studySubmitPanel');
+    if (panel) panel.hidden = true;
+    if (clearNote) {
+        const note = document.getElementById('studyNote');
+        if (note) note.value = '';
+    }
+}
+
+function openStudySubmitPanel() {
+    syncCompleteStudyButton();
+    const button = document.getElementById('completeStudyButton');
+    const panel = document.getElementById('studySubmitPanel');
+    const note = document.getElementById('studyNote');
+    if (!button || button.disabled || !panel) {
+        if (window.showParamToast) {
+            window.showParamToast('Study', 'finish Analyze before completing a finding');
+        }
+        return;
+    }
+    updateStudyArchiveCount();
+    const analyzed = window._analysisResultWaypoint;
+    const result = window._latestCoherenceResult;
+    const previewCuration = analyzed && result && window.engine
+        ? measureStudyCuration(
+            {
+                params: analyzed.params || {},
+                optics: analyzed.optics || {},
+                camera: {
+                    distance: analyzed.camDist,
+                    position: analyzed.camPosArr,
+                    quaternion: analyzed.camQuatArr,
+                    target: analyzed.camTargetArr
+                }
+            },
+            {
+                params: captureParamState(),
+                optics: captureStudyOptics(),
+                camera: captureStudyCamera(window.engine)
+            },
+            result
+        )
+        : null;
+    const curationLabel = document.getElementById('studyCurationPoints');
+    if (curationLabel && previewCuration) {
+        curationLabel.textContent = `curation +${previewCuration.points} pts`;
+        curationLabel.title = 'Distance between the analyzed view and your submitted composition';
+    }
+    panel.hidden = false;
+    window.setTimeout(() => note?.focus(), 0);
+}
+
+function completeStudyFinding(note = '') {
+    const record = buildStudyRecord(note);
+    if (!record) {
+        if (window.showParamToast) {
+            window.showParamToast('Study', 'the analyzed signature is no longer current');
+        }
+        return false;
+    }
+    let archive = loadStudyArchive();
+    archive.push(record);
+    try {
+        archive = saveStudyArchive(archive);
+    } catch (error) {
+        if (window.showParamToast) {
+            window.showParamToast('Study', 'local archive is full / finding not saved');
+        }
+        return false;
+    }
+    downloadStudyArchive(archive);
+    const button = document.getElementById('completeStudyButton');
+    if (button) {
+        button.dataset.savedRevision = String(window._analysisWorkflowRevision || 0);
+        button.classList.add('study-saved');
+        button.disabled = true;
+    }
+    updateStudyArchiveCount(archive);
+    closeStudySubmitPanel(true);
+    awardSessionCredits(record.curation.points);
+    renderSignalSpectrumResult(
+        window._latestCoherenceResult,
+        { autoCollapse: true, travel: true }
+    );
+    if (window.showParamToast) {
+        window.showParamToast(
+            'Study',
+            `${record.coordinate.coordId} / curation +${record.curation.points} / ${record.analysis.score.total} pts`
+        );
+    }
+    return true;
+}
+
+// Roll Dice is a coordinate-space search, not a benchmark randomizer.
+// It deliberately leaves particle count, Automata, simulation-admin,
+// offsets, visibility switches, and UI configuration untouched. Optional
+// Phoenix effects have real zero probability so rolls can expose clean
+// low-dimensional combinations instead of always producing "everything on."
+function buildExpressiveDiceRoll() {
+    const unit = () => Math.random();
+    const linear = (min, max) => min + (max - min) * unit();
+    const logarithmic = (min, max) => Math.exp(
+        Math.log(min) + (Math.log(max) - Math.log(min)) * unit()
+    );
+    const stepped = (value, step) => Number(
+        (Math.round(value / step) * step).toFixed(
+            Math.max(0, Math.ceil(-Math.log10(step)))
+        )
+    );
+    const optional = (value, zeroChance = 0.35) => unit() < zeroChance ? 0 : value;
+    const sign = () => unit() < 0.5 ? -1 : 1;
+    const family = () => [1, 3, 5][Math.floor(unit() * 3)];
+
+    const tempoMagnitude = logarithmic(0.03, 3.0);
+    const coherenceMagnitude = logarithmic(0.001, 200.0);
+    const phaseEnabled = unit() < 0.68;
+
+    return {
+        // Original Scale Space expressive controls.
+        tempo: stepped(sign() * tempoMagnitude, 0.01),
+        halfLife: stepped(linear(5, 30), 0.1),
+        coherence: stepped(sign() * coherenceMagnitude, 0.001),
+        equilibrium: Math.max(0.001, stepped(logarithmic(0.001, 0.2), 0.001)),
+        temperature: stepped(Math.pow(unit(), 1.7) * 3, 0.01),
+        viscosity: stepped(Math.pow(unit(), 1.4), 0.01),
+        inversion: Math.round(linear(30, 500)),
+        scaleDepth: stepped(optional(linear(0.05, 5), 0.12), 0.01),
+        mass: Math.max(0.1, stepped(logarithmic(0.1, 5), 0.05)),
+
+        // Space and memory.
+        spatialInversion: stepped(optional(linear(0.05, 1), 0.28), 0.01),
+        zeroWidth: Math.max(0.001, stepped(logarithmic(0.001, 1), 0.001)),
+        exclusion: stepped(optional(linear(0.05, 1), 0.42), 0.001),
+        homePull: stepped(linear(0, 1), 0.01),
+        responseMemory: stepped(optional(linear(0.05, 0.985), 0.25), 0.0001),
+        momentumCoupling: stepped(optional(linear(0.005, 0.25), 0.48), 0.005),
+
+        // Phase is rolled as a related instrument. When it is ablated, its
+        // dependent family controls return to a legible unison state.
+        phaseLens: phaseEnabled ? stepped(linear(-1, 1), 0.001) : 0,
+        phaseCoupling: phaseEnabled ? stepped(linear(-1, 1), 0.001) : 0,
+        phaseForce: phaseEnabled ? stepped(linear(0.05, 1), 0.001) : 0,
+        frequencyFamilies: phaseEnabled ? family() : 1,
+        frequencySpread: phaseEnabled ? stepped(linear(0, 4), 0.001) : 0,
+        spinor: phaseEnabled ? stepped(optional(linear(0.05, 1), 0.45), 0.001) : 0,
+        mobiusTwist: stepped(optional(linear(0.05, 1), 0.48), 0.001),
+
+        // Inertia families.
+        massFamilies: family(),
+        massRange: stepped(optional(linear(0.05, 2), 0.35), 0.01),
+
+        // Rebirth projection geometry.
+        projectionNozzle: unit() < 0.5 ? 0 : 1,
+
+        // Coordinate lens and surface treatment. Presentation Scale,
+        // Resolution, Cloud LOD, and visibility remain user-owned so an
+        // expressive field reroll cannot destroy a carefully tuned view.
+        scaleLens: stepped(optional(linear(0.05, 1), 0.3), 0.001),
+        opacity: stepped(linear(0.08, 0.7), 0.01),
+        hue: stepped(linear(0.01, 1), 0.01),
+        sat: stepped(linear(0.3, 1.5), 0.01),
+        trailLen: Math.round(linear(3, 30))
+    };
+}
+
+async function rollExpressiveDice() {
+    const button = document.getElementById('rollDiceButton');
+    if (!window.S || !window.engine) return;
+    if (!spendSessionCredits(DICE_ROLL_COST)) {
+        if (window.showParamToast) {
+            const needed = Math.max(0, DICE_ROLL_COST - getSessionCredits());
+            window.showParamToast(
+                'Roll Dice',
+                `${needed} more credits needed / explore this field`
+            );
+        }
+        return;
+    }
+    resetAnalysisWorkflow('dice');
+    cancelCoherenceAnalysis(true, true);
+    cancelPresentationScan(true, true);
+    const requestId = (window._diceRollRequestId || 0) + 1;
+    window._diceRollRequestId = requestId;
+
+    // A dice roll is direct user input. Prevent a tour or an in-flight
+    // waypoint transition from immediately writing the previous state back.
+    if (tour.active) {
+        stopTour();
+    } else if (window.transition) {
+        window.transition = null;
+        delete window.S._xfade;
+    }
+
+    const roll = buildExpressiveDiceRoll();
+    const autoFrame = window.S.autoFrameDice !== false && window.S.moveMode === 'orbit';
+    const fieldPresenceRadius = autoFrame
+        ? await window.engine.readFieldPresenceRadius()
+        : null;
+    // A newer click supersedes an older readback rather than allowing the
+    // stale result to launch a second transition afterward.
+    if (requestId !== window._diceRollRequestId) return;
+    const durationMs = getStateTransitionDurationMs();
+    const targetCameraDistance = autoFrame
+        ? getDiceAutoFrameDistance(window.engine, roll, fieldPresenceRadius)
+        : window.engine.cam.dist;
+    // Preserve modulation, camera, visibility, and discrete optics while the
+    // expressive numeric controls glide to their new coordinate. Passing the
+    // current mod state prevents startTransition's waypoint fallback from
+    // zeroing user-authored modulation during a dice roll.
+    const preservedOptics = {
+        mods: captureModState(),
+        showParticles: window.S.showParticles !== false,
+        showRibbons: !!window.S.showRibbons,
+        tessRibbons: !!window.S.tessRibbons,
+        shape: window.S.shape || 'circle',
+        colorMode: window.S.colorMode ?? 0
+    };
+    startTransition(
+        roll,
+        targetCameraDistance,
+        window.engine.cam.quat.toArray(),
+        preservedOptics,
+        window.engine.cam.pos.toArray(),
+        durationMs,
+        'dice'
+    );
+
+    if (button) {
+        button.classList.remove('rolling');
+        // Restart the animation even when rolls happen in quick succession.
+        void button.offsetWidth;
+        button.classList.add('rolling');
+        window.setTimeout(() => button.classList.remove('rolling'), 380);
+    }
+    if (window.showParamToast) {
+        const seconds = durationMs / 1000;
+        const frameNote = autoFrame
+            ? ` / frame ${Math.round(targetCameraDistance)}`
+            : '';
+        window.showParamToast(
+            'Roll Dice',
+            `-${DICE_ROLL_COST} credits / ${Object.keys(roll).length} controls / ${seconds < 1 ? seconds.toFixed(2) : seconds.toFixed(1)}s glide${frameNote}`
+        );
+    }
+}
+window.rollExpressiveDice = rollExpressiveDice;
+
+async function readSettledFieldPresence(engine, requestId) {
+    const readings = [];
+    const startedAt = performance.now();
+    const minimumObserveMs = 3000;
+    const maximumObserveMs = 10000;
+    const sampleIntervalMs = 500;
+
+    while (true) {
+        if (requestId !== window._enhanceRequestId) return null;
+        const radius = await engine.readFieldPresenceRadius();
+        if (requestId !== window._enhanceRequestId) return null;
+        if (Number.isFinite(radius) && radius > 0) readings.push(radius);
+
+        const elapsed = performance.now() - startedAt;
+        if (readings.length >= 4 && elapsed >= minimumObserveMs) {
+            const recent = readings.slice(-4).sort((a, b) => a - b);
+            const middle = (recent[1] + recent[2]) * 0.5;
+            const relativeSpan = (recent[3] - recent[0]) / Math.max(0.001, middle);
+            if (relativeSpan <= 0.03) {
+                // Keep the largest stable reading. Under-framing an expanding
+                // filament is more destructive than leaving modest air around it.
+                return recent[3];
+            }
+        }
+        if (elapsed >= maximumObserveMs) {
+            if (readings.length === 0) return null;
+            const ordered = readings.slice().sort((a, b) => a - b);
+            // A high percentile rejects an isolated escapee while retaining
+            // the late, larger envelope of a field that is still unfurling.
+            return ordered[Math.floor((ordered.length - 1) * 0.9)];
+        }
+        await new Promise(resolve => window.setTimeout(resolve, sampleIntervalMs));
+    }
+}
+
+async function enhanceCurrentField() {
+    const button = document.getElementById('enhanceButton');
+    if (!window.S || !window.engine) return;
+    const workflowRevision = window._analysisWorkflowRevision || 0;
+    cancelCoherenceAnalysis(true, true);
+    cancelPresentationScan(true, true);
+    const requestId = (window._enhanceRequestId || 0) + 1;
+    window._enhanceRequestId = requestId;
+
+    // Enhance is a deliberate inspection action, so a running atlas tour
+    // yields control. A dice glide is allowed to finish: its settled geometry
+    // is the specimen we want to measure, not the state it departed from.
+    if (tour.active) stopTour();
+    if (window.transition) {
+        button?.classList.add('waiting');
+        if (window.showParamToast) {
+            window.showParamToast('Extents', 'waiting for the field to settle');
+        }
+        while (window.transition) {
+            await new Promise(resolve => window.setTimeout(resolve, 50));
+            if (requestId !== window._enhanceRequestId) return;
+        }
+    }
+    if (requestId !== window._enhanceRequestId) return;
+
+    button?.classList.add('waiting');
+    if (window.showParamToast) {
+        window.showParamToast('Extents', 'watching the field extents settle');
+    }
+    const fieldPresenceRadius = await readSettledFieldPresence(window.engine, requestId);
+    if (requestId !== window._enhanceRequestId) return;
+    button?.classList.remove('waiting');
+    if (!fieldPresenceRadius) {
+        if (window.showParamToast) {
+            window.showParamToast('Extents', 'field extent unavailable');
+        }
+        return;
+    }
+    const targets = getEnhanceTargets(window.engine, fieldPresenceRadius);
+    if (!targets) return;
+
+    const preservedOptics = {
+        mods: captureModState(),
+        showParticles: window.S.showParticles !== false,
+        showRibbons: !!window.S.showRibbons,
+        tessRibbons: !!window.S.tessRibbons,
+        shape: window.S.shape || 'circle',
+        colorMode: window.S.colorMode ?? 0
+    };
+    const durationMs = getStateTransitionDurationMs();
+    startTransition(
+        {
+            presentationScale: targets.presentationScale,
+            resolution: targets.resolution
+        },
+        window.engine.cam.dist,
+        window.engine.cam.quat.toArray(),
+        preservedOptics,
+        window.engine.cam.pos.toArray(),
+        durationMs
+    );
+
+    if (button) {
+        button.classList.remove('enhancing');
+        void button.offsetWidth;
+        button.classList.add('enhancing');
+        window.setTimeout(() => button.classList.remove('enhancing'), 540);
+    }
+    if (window.showParamToast) {
+        window.showParamToast(
+            'Extents',
+            `scale ${targets.presentationScale.toPrecision(3)} / resolution ${targets.resolution.toPrecision(3)} / lens ${targets.scaleLens.toFixed(2)}`
+        );
+    }
+    window.setTimeout(
+        () => markAnalysisWorkflowStep('extents', workflowRevision),
+        durationMs + 80
+    );
+}
+window.enhanceCurrentField = enhanceCurrentField;
+
+function setPresentationScaleFromScan(value) {
+    if (!window.S || !Number.isFinite(value)) return;
+    window.S.presentationScale = value;
+    if (window.sliderSync && window.sliderSync.presentationScale) {
+        window.sliderSync.presentationScale(value);
+    }
+}
+
+function restorePresentationScanCamera(scan) {
+    if (!scan?.orbitCamera || !window.engine?.cam) return;
+    const cam = window.engine.cam;
+    cam.quat.copy(scan.startQuat);
+    cam.dist = scan.startDist;
+    cam.distTarget = scan.startDistTarget;
+    cam.pos.copy(scan.startCamPos);
+    // The normal camera saver is throttled. Force this exact restored pose to
+    // win over any transient orbit pose it may have persisted mid-scan.
+    if (typeof window.engine.saveCameraState === 'function') {
+        window.engine._lastCamSave = 0;
+        window.engine.saveCameraState();
+    }
+}
+
+function cancelPresentationScan(restore = true, quiet = false) {
+    const scan = window._presentationScan;
+    if (!scan) return false;
+    if (scan.frame) cancelAnimationFrame(scan.frame);
+    window._presentationScan = null;
+    document.getElementById('scanButton')?.classList.remove('scanning');
+    if (restore) {
+        setPresentationScaleFromScan(scan.startExact);
+        restorePresentationScanCamera(scan);
+    }
+    try { localStorage.setItem('ss_state', JSON.stringify(window.S)); } catch (e) {}
+    if (!quiet && window.showParamToast) {
+        window.showParamToast('Observe', 'stopped / starting view restored');
+    }
+    return true;
+}
+
+function scanPresentationScale() {
+    if (!window.S || !window.engine) return;
+    const workflowRevision = window._analysisWorkflowRevision || 0;
+    cancelCoherenceAnalysis(true, true);
+    if (window._presentationScan) {
+        cancelPresentationScan(true, false);
+        return;
+    }
+    if (tour.active) stopTour();
+    if (window.transition) {
+        if (window.showParamToast) {
+            window.showParamToast('Observe', 'wait for the current glide to settle');
+        }
+        return;
+    }
+
+    const rawStart = Number(window.S.presentationScale);
+    const startExact = Number.isFinite(rawStart) ? rawStart : 1;
+    const direction = startExact < 0 ? -1 : 1;
+    const startMagnitude = THREE.MathUtils.clamp(Math.abs(startExact), 0.001, 100);
+    const zoomFactor = 3.5;
+    const zoomedIn = Math.min(100, startMagnitude * zoomFactor);
+    const zoomedOut = Math.max(0.001, startMagnitude / zoomFactor);
+    const legDuration = Math.max(3000, getStateTransitionDurationMs() * 1.25);
+    const segments = [
+        [startMagnitude, zoomedIn],
+        [zoomedIn, zoomedOut],
+        [zoomedOut, startMagnitude]
+    ];
+    const orbitCamera = window.S.moveMode === 'orbit';
+    const cam = window.engine.cam;
+    const startDist = Math.max(2, Number(cam.dist) || 52);
+    const distanceSegments = [
+        [startDist, Math.max(2, startDist * 0.76)],
+        [Math.max(2, startDist * 0.76), startDist * 1.12],
+        [startDist * 1.12, startDist]
+    ];
+    const scan = {
+        startExact,
+        startedAt: performance.now(),
+        legDuration,
+        totalDuration: legDuration * segments.length,
+        segments,
+        distanceSegments,
+        direction,
+        orbitCamera,
+        startQuat: cam.quat.clone(),
+        startCamPos: cam.pos.clone(),
+        startDist,
+        startDistTarget: Math.max(2, Number(cam.distTarget) || startDist),
+        orbitAxis: new THREE.Vector3(0, 1, 0),
+        orbitQuat: new THREE.Quaternion(),
+        frame: 0
+    };
+    window._presentationScan = scan;
+    document.getElementById('scanButton')?.classList.add('scanning');
+    if (window.showParamToast) {
+        window.showParamToast(
+            'Observe',
+            `${(scan.totalDuration / 1000).toFixed(1)}s orbit / scale sweep`
+        );
+    }
+
+    const tick = now => {
+        if (window._presentationScan !== scan) return;
+        const elapsed = Math.max(0, now - scan.startedAt);
+        if (elapsed >= scan.totalDuration) {
+            setPresentationScaleFromScan(scan.startExact);
+            restorePresentationScanCamera(scan);
+            window._presentationScan = null;
+            document.getElementById('scanButton')?.classList.remove('scanning');
+            try { localStorage.setItem('ss_state', JSON.stringify(window.S)); } catch (e) {}
+            markAnalysisWorkflowStep('observe', workflowRevision);
+            if (window.showParamToast) {
+                window.showParamToast('Observe', 'complete / starting view restored');
+            }
+            return;
+        }
+
+        const segmentIndex = Math.min(
+            scan.segments.length - 1,
+            Math.floor(elapsed / scan.legDuration)
+        );
+        const localT = (elapsed - segmentIndex * scan.legDuration) / scan.legDuration;
+        const ease = localT < 0.5
+            ? 2 * localT * localT
+            : 1 - Math.pow(-2 * localT + 2, 2) / 2;
+        const [fromMagnitude, toMagnitude] = scan.segments[segmentIndex];
+        // Log interpolation makes 0.01→0.025 feel like the same amount of
+        // travel as 10→25 instead of racing through fractional scale.
+        const logMagnitude = THREE.MathUtils.lerp(
+            Math.log(fromMagnitude),
+            Math.log(toMagnitude),
+            ease
+        );
+        setPresentationScaleFromScan(scan.direction * Math.exp(logMagnitude));
+        if (scan.orbitCamera) {
+            const [fromDist, toDist] = scan.distanceSegments[segmentIndex];
+            const scanCam = window.engine.cam;
+            scanCam.dist = THREE.MathUtils.lerp(fromDist, toDist, ease);
+            scanCam.distTarget = scanCam.dist;
+
+            // One complete world-Y revolution returns to the exact starting
+            // orientation. Smootherstep gives the orbit a gentle launch and
+            // landing without changing its reversible endpoint.
+            const overallT = THREE.MathUtils.clamp(elapsed / scan.totalDuration, 0, 1);
+            const orbitT = overallT * overallT * overallT
+                * (overallT * (overallT * 6 - 15) + 10);
+            scan.orbitQuat.setFromAxisAngle(scan.orbitAxis, Math.PI * 2 * orbitT);
+            scanCam.quat.copy(scan.orbitQuat).multiply(scan.startQuat).normalize();
+        }
+        scan.frame = requestAnimationFrame(tick);
+    };
+    scan.frame = requestAnimationFrame(tick);
+}
+window.scanPresentationScale = scanPresentationScale;
+
+function clearAnalysisReadoutTimer() {
+    if (window._analysisReadoutTimer) {
+        window.clearTimeout(window._analysisReadoutTimer);
+        window._analysisReadoutTimer = null;
+    }
+}
+
+function clearAnalysisRevealTimer() {
+    if (window._analysisRevealTimer) {
+        window.clearTimeout(window._analysisRevealTimer);
+        window._analysisRevealTimer = null;
+    }
+}
+
+function collapseAnalysisReadout() {
+    const readout = document.getElementById('analysisReadout');
+    if (!readout?.classList.contains('visible')) return;
+    clearAnalysisReadoutTimer();
+    clearAnalysisRevealTimer();
+    readout.classList.remove('result-reveal');
+    readout.classList.add('collapsed');
+    readout.setAttribute('aria-label', 'Expand the latest analysis result');
+}
+
+function scheduleAnalysisReadoutCollapse(delay = 10000) {
+    clearAnalysisReadoutTimer();
+    window._analysisReadoutTimer = window.setTimeout(
+        collapseAnalysisReadout,
+        delay
+    );
+}
+
+function expandAnalysisReadout() {
+    const readout = document.getElementById('analysisReadout');
+    if (!readout?.classList.contains('visible')) return;
+    readout.classList.remove('collapsed');
+    readout.removeAttribute('aria-label');
+    scheduleAnalysisReadoutCollapse(10000);
+}
+
+function setAnalysisReadout(content = '', options = {}) {
+    const readout = document.getElementById('analysisReadout');
+    if (!readout) return;
+    if (window._analysisNextReadoutOptions) {
+        options = window._analysisNextReadoutOptions;
+        window._analysisNextReadoutOptions = null;
+    }
+    clearAnalysisReadoutTimer();
+    clearAnalysisRevealTimer();
+    if (!content) {
+        readout.innerHTML = '';
+        readout.classList.remove('visible', 'collapsed', 'result-reveal');
+        return;
+    }
+    const actions = options.travel
+        ? '<div class="analysis-actions">'
+            + '<button type="button" data-analysis-action="travel" title="Travel to this analyzed coordinate" aria-label="Travel to this analyzed coordinate">✈</button>'
+            + '<button type="button" data-analysis-action="collapse" title="Collapse analysis result" aria-label="Collapse analysis result">⌁</button>'
+            + '</div>'
+        : '';
+    readout.innerHTML =
+        '<button type="button" class="analysis-glyph" data-analysis-action="expand" title="Open latest analysis" aria-label="Open latest analysis">⌁</button>'
+        + `<div class="analysis-card-content">${content}${actions}</div>`;
+    readout.classList.add('visible');
+    readout.classList.remove('collapsed', 'result-reveal');
+    if (options.reveal) {
+        // Restart the entrance animation even when this replaces an already
+        // visible "sampling…" card. The completed finding should arrive as a
+        // distinct beat, not silently overwrite the progress copy.
+        void readout.offsetWidth;
+        readout.classList.add('result-reveal');
+        window._analysisRevealTimer = window.setTimeout(() => {
+            readout.classList.remove('result-reveal');
+            window._analysisRevealTimer = null;
+        }, 520);
+    }
+
+    if (readout.dataset.ready !== '1') {
+        readout.dataset.ready = '1';
+        readout.addEventListener('pointerdown', event => event.stopPropagation());
+        readout.addEventListener('click', event => {
+            const actionNode = event.target.closest('[data-analysis-action]');
+            const action = actionNode?.dataset.analysisAction;
+            if (readout.classList.contains('collapsed') || action === 'expand') {
+                expandAnalysisReadout();
+                return;
+            }
+            if (action === 'collapse') {
+                collapseAnalysisReadout();
+                return;
+            }
+            if (action === 'travel' && window._analysisResultWaypoint) {
+                travelTo(window._analysisResultWaypoint);
+                collapseAnalysisReadout();
+                if (window.showParamToast) {
+                    window.showParamToast('Analyze', 'traveling to saved analysis focus');
+                }
+            }
+        });
+    }
+    if (options.autoCollapse) scheduleAnalysisReadoutCollapse(10000);
+}
+
+function scaleBandLesson(ratio) {
+    if (ratio < 0.12) return 'deep inside the 0.15 SSU equilibrium border';
+    if (ratio < 0.22) return 'straddling the 0.15 SSU equilibrium border';
+    if (ratio <= 1) return 'inside the attractive coherence shell';
+    return 'outside one SSU: nearby, but beyond pair influence';
+}
+
+function renderAnalysisResult(result, status = 'coherent corridor', options = {}) {
+    const percent = value => `${Math.round(THREE.MathUtils.clamp(value, 0, 1) * 100)}%`;
+    const scaleRatio = result.dominantScaleRatio;
+    const octave = result.dominantScaleOctave;
+    window._analysisNextReadoutOptions = options;
+    setAnalysisReadout(
+        `<div class="analysis-title">${status}</div>`
+        + `<div class="analysis-line"><span>authority</span><b>${percent(result.coherenceScore)}</b></div>`
+        + `<div class="analysis-line"><span>neighbor band</span><b>${scaleRatio.toPrecision(3)} SSU</b></div>`
+        + `<div class="analysis-line"><span>scale octave</span><b>${octave >= 0 ? '+' : ''}${octave.toFixed(2)}</b></div>`
+        + `<div class="analysis-line"><span>corridor span</span><b>${result.spanSsu.toFixed(1)} SSU</b></div>`
+        + `<div class="analysis-line"><span>flow alignment</span><b>${percent(result.flowAlignment)}</b></div>`
+        + `<div class="analysis-line"><span>sensors</span><b>${result.pathCount}/${result.sensorCount}</b></div>`
+        + (Number.isFinite(result.focusPresentationScale)
+            ? `<div class="analysis-line"><span>focus scale</span><b>${result.focusPresentationScale.toPrecision(3)}</b></div>`
+            : '')
+        + (Number.isFinite(result.focusScaleLens)
+            ? `<div class="analysis-line"><span>focus lens</span><b>${result.focusScaleLens.toFixed(3)}</b></div>`
+            : '')
+        + `<div class="analysis-teach">q = neighbor distance ÷ SSU. This path is ${scaleBandLesson(scaleRatio)}.</div>`
+    );
+}
+
+function restoreCoherenceAnalysisView(run) {
+    if (!run || !window.engine?.cam) return;
+    setPresentationScaleFromScan(run.startPresentationScale);
+    window.S.scaleLens = run.startScaleLens;
+    window.S.resolution = run.startResolution;
+    window.S.opacity = run.startOpacity;
+    if (window.sliderSync?.scaleLens) {
+        window.sliderSync.scaleLens(run.startScaleLens);
+    }
+    if (window.sliderSync?.resolution) {
+        window.sliderSync.resolution(run.startResolution);
+    }
+    if (window.sliderSync?.opacity) {
+        window.sliderSync.opacity(run.startOpacity);
+    }
+    const cam = window.engine.cam;
+    cam.target.copy(run.startTarget);
+    cam.quat.copy(run.startQuat);
+    cam.dist = run.startDist;
+    cam.distTarget = run.startDistTarget;
+    cam.pos.copy(run.startCamPos);
+    if (window.S.colorMode !== run.startColorMode) {
+        fadeColorModeChange(run.startColorMode, 500);
+    }
+    if (typeof window.engine.saveCameraState === 'function') {
+        window.engine._lastCamSave = 0;
+        window.engine.saveCameraState();
+    }
+}
+
+function landCoherenceAnalysisFocus(run) {
+    if (!run || !window.engine?.cam) return;
+    setPresentationScaleFromScan(run.focusPresentationScale);
+    window.S.scaleLens = run.focusScaleLens;
+    window.S.resolution = run.startResolution;
+    window.S.opacity = run.startOpacity;
+    if (window.sliderSync?.scaleLens) {
+        window.sliderSync.scaleLens(run.focusScaleLens);
+    }
+    if (window.sliderSync?.resolution) {
+        window.sliderSync.resolution(run.startResolution);
+    }
+    if (window.sliderSync?.opacity) {
+        window.sliderSync.opacity(run.startOpacity);
+    }
+
+    // The orbit and Log Scale palette explain the measurement; they are not
+    // part of the chosen coordinate. Land with the user's exact camera and
+    // aesthetic settings. Only Presentation Scale and Scale Lens remain tuned.
+    const cam = window.engine.cam;
+    cam.target.copy(run.startTarget);
+    cam.quat.copy(run.startQuat);
+    cam.dist = run.startDist;
+    cam.distTarget = run.startDistTarget;
+    cam.pos.copy(run.startCamPos);
+    if (window.S.colorMode !== run.startColorMode) {
+        fadeColorModeChange(run.startColorMode, 500);
+    }
+    if (typeof window.engine.saveCameraState === 'function') {
+        window.engine._lastCamSave = 0;
+        window.engine.saveCameraState();
+    }
+    try { localStorage.setItem('ss_state', JSON.stringify(window.S)); } catch (e) {}
+}
+
+function buildAnalysisResultWaypoint(run, result) {
+    const engine = window.engine;
+    if (!engine) return null;
+    return {
+        id: `analysis_${Date.now()}`,
+        coordId: `analysis_${result.dominantScaleRatio.toPrecision(3)}`,
+        name: `Analysis · ${result.dominantScaleRatio.toPrecision(3)} SSU`,
+        notes: `Coherent corridor · ${Math.round(result.coherenceScore * 100)}% authority`,
+        params: captureParamState(),
+        optics: {
+            colorMode: run.startColorMode,
+            hue: window.S.hue,
+            sat: window.S.sat,
+            lightness: window.S.lightness,
+            opacity: window.S.opacity,
+            tempo: window.S.tempo,
+            trailLen: window.S.trailLen,
+            bgGlow: window.S.bgGlow,
+            bgBlur: window.S.bgBlur,
+            offsetX: window.S.offsetX,
+            offsetY: window.S.offsetY,
+            offsetZ: window.S.offsetZ,
+            billboardOffset: window.S.billboardOffset,
+            showParticles: window.S.showParticles !== false,
+            showRibbons: !!window.S.showRibbons,
+            tessRibbons: !!window.S.tessRibbons,
+            shape: window.S.shape || 'circle',
+            mods: captureModState()
+        },
+        camDist: run.startDist,
+        camQuatArr: run.startQuat.toArray(),
+        camPosArr: run.startCamPos.toArray(),
+        camTargetArr: run.startTarget?.toArray
+            ? run.startTarget.toArray()
+            : engine.cam.target.toArray(),
+        timestamp: Date.now(),
+        transientAnalysis: true
+    };
+}
+
+function cancelCoherenceAnalysis(restore = true, quiet = false) {
+    const run = window._coherenceAnalysis;
+    if (!run) return false;
+    if (run.frame) cancelAnimationFrame(run.frame);
+    window._coherenceAnalysis = null;
+    if (window.engine) window.engine._analysisActive = false;
+    document.getElementById('analyzeButton')?.classList.remove('analyzing');
+    if (restore) restoreCoherenceAnalysisView(run);
+    if (!quiet) {
+        setAnalysisReadout('');
+        if (window.showParamToast) {
+            window.showParamToast('Scan', 'stopped / starting view restored');
+        }
+    }
+    return true;
+}
+
+async function analyzeCoherentPaths() {
+    if (!window.S || !window.engine) return;
+    if (window._coherenceAnalysis) {
+        cancelCoherenceAnalysis(true, false);
+        return;
+    }
+    window._analysisResultWaypoint = null;
+    cancelPresentationScan(true, true);
+    if (tour.active) stopTour();
+    if (window.transition) {
+        if (window.showParamToast) {
+            window.showParamToast('Scan', 'wait for the current glide to settle');
+        }
+        return;
+    }
+    const cam = window.engine.cam;
+    const rawScale = Number(window.S.presentationScale);
+    const startPresentationScale = Number.isFinite(rawScale) ? rawScale : 1;
+    const run = {
+        phase: 'sampling',
+        frame: 0,
+        startColorMode: Number(window.S.colorMode) || 0,
+        startPresentationScale,
+        startScaleLens: THREE.MathUtils.clamp(Number(window.S.scaleLens) || 0, 0, 1),
+        startResolution: Math.max(0.1, Number(window.S.resolution) || 0.1),
+        startOpacity: THREE.MathUtils.clamp(Number(window.S.opacity) || 0, 0, 1),
+        startTarget: cam.target.clone(),
+        startQuat: cam.quat.clone(),
+        startDist: Math.max(2, Number(cam.dist) || 52),
+        startDistTarget: Math.max(2, Number(cam.distTarget) || Number(cam.dist) || 52),
+        startCamPos: cam.pos.clone()
+    };
+    run.workflowRevision = window._analysisWorkflowRevision || 0;
+    window._coherenceAnalysis = run;
+    window.engine._analysisActive = true;
+    document.getElementById('analyzeButton')?.classList.add('analyzing');
+    setAnalysisReadout(
+        '<div class="analysis-title">sampling signal</div>'
+        + '<div class="analysis-line"><span>sensors</span><b>1 per 1024</b></div>'
+        + '<div class="analysis-teach">Measuring density, phase order, vitality, local flow, and nearest-neighbor scale. Physics is unchanged.</div>'
+    );
+    if (window.S.colorMode !== 5) fadeColorModeChange(5, 600);
+    if (window.showParamToast) {
+        window.showParamToast('Scan', 'sampling sparse coherence sensors');
+    }
+
+    // Give the explanatory color transition time to become visible, then
+    // explicitly capture a short read-only metric ensemble. This is
+    // independent of Tempo and therefore works on a deliberately frozen
+    // coordinate field.
+    await new Promise(resolve => window.setTimeout(resolve, 700));
+    if (window._coherenceAnalysis !== run) return;
+    const result = await window.engine.captureCoherenceAnalysis();
+    if (window._coherenceAnalysis !== run) return;
+    if (!result || result.empty) {
+        window.engine._analysisActive = false;
+        window._coherenceAnalysis = null;
+        document.getElementById('analyzeButton')?.classList.remove('analyzing');
+        restoreCoherenceAnalysisView(run);
+        const diagnostic = result?.empty
+            ? `${result.candidateCount}/${result.activePilots} candidates · ${result.signalCount} signals · ${result.positionCount} positions`
+            : 'GPU metric readback unavailable';
+        window._analysisNextReadoutOptions = {
+            autoCollapse: true,
+            reveal: true
+        };
+        setAnalysisReadout(
+            '<div class="analysis-title">no corridor resolved</div>'
+            + `<div class="analysis-line"><span>metric pass</span><b>${diagnostic}</b></div>`
+            + '<div class="analysis-teach">No sensors produced enough shared signal across the frozen sample ensemble. At zero coherence this is exact; in a sparse field the metric remained unresolved.</div>'
+        );
+        markAnalysisWorkflowStep('scan', run.workflowRevision);
+        return;
+    }
+    window._latestCoherenceResult = result;
+    window._latestCoherenceResultRevision = run.workflowRevision;
+
+    run.phase = 'revealing';
+    run.result = result;
+    run.startedAt = performance.now();
+    run.duration = Math.max(9000, getStateTransitionDurationMs() * 2.4);
+    run.orbitAxis = result.axis.lengthSq() > 0.000001
+        ? result.axis.clone().normalize()
+        : new THREE.Vector3(0, 1, 0);
+    run.orbitQuat = new THREE.Quaternion();
+    const scaleSign = startPresentationScale < 0 ? -1 : 1;
+    const startMagnitude = THREE.MathUtils.clamp(
+        Math.abs(startPresentationScale),
+        0.001,
+        100
+    );
+    // Fractional octave depth chooses the logarithmic lens. Then frame the
+    // measured corridor through the exact radial map used by the renderer.
+    // Coherence supplies the SSU here and is never modified.
+    run.focusScaleLens = THREE.MathUtils.clamp(
+        Math.max(0, -result.dominantScaleOctave) / 6,
+        0,
+        1
+    );
+    const verticalFov = THREE.MathUtils.degToRad(
+        Math.max(10, Math.min(120, Number(window.engine.camera.fov) || 60))
+    );
+    const aspect = Math.max(0.1, Number(window.engine.camera.aspect) || 1);
+    const horizontalFov = 2 * Math.atan(Math.tan(verticalFov * 0.5) * aspect);
+    const limitingFov = Math.min(verticalFov, horizontalFov);
+    const visibleWorldRadius = run.startDist * Math.tan(limitingFov * 0.5);
+    const corridorRadius = Math.max(
+        result.ssu * result.spanSsu * 0.5,
+        result.ssu * result.dominantScaleRatio * 2
+    );
+    const compression = Math.max(0.001, Math.abs(Number(window.S.inversion) || 30));
+    const focusedCorridorRadius = mapRadiusThroughScaleLens(
+        corridorRadius,
+        result.ssu,
+        run.focusScaleLens,
+        compression
+    );
+    const focusMagnitude = THREE.MathUtils.clamp(
+        visibleWorldRadius * 0.62 / Math.max(0.001, focusedCorridorRadius),
+        0.001,
+        100
+    );
+    run.focusPresentationScale = scaleSign * focusMagnitude;
+    result.focusPresentationScale = run.focusPresentationScale;
+    result.focusScaleLens = run.focusScaleLens;
+    // Additive particles can hide their own scale coloring when a manually
+    // enlarged Resolution meets a dense field. Analysis temporarily uses
+    // fine quanta and restrained opacity, then restores both exactly.
+    run.revealResolution = Math.min(
+        run.startResolution,
+        Math.max(0.1, Math.min(0.35, run.startResolution * 0.2))
+    );
+    const densityOpacity = 0.18 * Math.sqrt(
+        100000 / Math.max(100000, Number(window.S.freeEnergy) || 100000)
+    );
+    run.revealOpacity = Math.min(
+        run.startOpacity,
+        THREE.MathUtils.clamp(densityOpacity, 0.055, 0.18)
+    );
+    run.scaleSign = scaleSign;
+    run.focusRaw = result.centroid.clone();
+    setAnalysisReadout(
+        '<div class="analysis-title">corridor located</div>'
+        + '<div class="analysis-line"><span>focus pass</span><b>in progress</b></div>'
+        + '<div class="analysis-teach">Following the coherent path before revealing its measured signature.</div>'
+    );
+    if (window.showParamToast) {
+        window.showParamToast('Scan', 'corridor located / tracing focus');
+    }
+
+    const smoothstep = t => t * t * (3 - 2 * t);
+    const tick = now => {
+        if (window._coherenceAnalysis !== run) return;
+        const t = THREE.MathUtils.clamp((now - run.startedAt) / run.duration, 0, 1);
+        const revealT = t < 0.3 ? smoothstep(t / 0.3) : 1;
+        const settleEnvelope = t <= 0.72
+            ? 1
+            : 1 - smoothstep((t - 0.72) / 0.28);
+        const supportT = t <= 0.72 ? revealT : settleEnvelope;
+        const breathing = 1
+            + Math.sin(Math.max(0, t - 0.3) / 0.42 * Math.PI * 2)
+                * 0.06 * settleEnvelope * revealT;
+        const magnitude = THREE.MathUtils.lerp(
+            startMagnitude,
+            Math.abs(run.focusPresentationScale) * breathing,
+            revealT
+        );
+        const presentedScale = run.scaleSign * magnitude;
+        setPresentationScaleFromScan(presentedScale);
+        window.S.scaleLens = THREE.MathUtils.lerp(
+            run.startScaleLens,
+            run.focusScaleLens,
+            revealT
+        );
+        if (window.sliderSync?.scaleLens) {
+            window.sliderSync.scaleLens(window.S.scaleLens);
+        }
+        window.S.resolution = THREE.MathUtils.lerp(
+            run.startResolution,
+            run.revealResolution,
+            supportT
+        );
+        window.S.opacity = THREE.MathUtils.lerp(
+            run.startOpacity,
+            run.revealOpacity,
+            supportT
+        );
+        if (window.sliderSync?.resolution) {
+            window.sliderSync.resolution(window.S.resolution);
+        }
+        if (window.sliderSync?.opacity) {
+            window.sliderSync.opacity(window.S.opacity);
+        }
+
+        // Center the measured raw-space corridor under the active
+        // presentation transform. Once centered, Scale Lens also measures
+        // outward from the path rather than from an unrelated camera target.
+        const offsets = new THREE.Vector3(
+            Number(window.S.offsetX) || 0,
+            Number(window.S.offsetY) || 0,
+            Number(window.S.offsetZ) || 0
+        );
+        const pathTarget = run.focusRaw.clone().multiplyScalar(presentedScale).add(offsets);
+        cam.target.lerpVectors(run.startTarget, pathTarget, supportT);
+        const closeDistance = Math.max(2, run.startDist * 0.78);
+        cam.dist = THREE.MathUtils.lerp(run.startDist, closeDistance, supportT);
+        cam.distTarget = cam.dist;
+
+        // A complete turn shows whether the apparent line is volumetric,
+        // then lands on the user's original camera orientation.
+        const orbitT = smoothstep(t);
+        run.orbitQuat.setFromAxisAngle(run.orbitAxis, Math.PI * 2 * orbitT);
+        cam.quat.copy(run.orbitQuat).multiply(run.startQuat).normalize();
+
+        if (t >= 1) {
+            window.engine._analysisActive = false;
+            window._coherenceAnalysis = null;
+            document.getElementById('analyzeButton')?.classList.remove('analyzing');
+            landCoherenceAnalysisFocus(run);
+            window._analysisResultWaypoint = buildAnalysisResultWaypoint(run, result);
+            renderAnalysisResult(
+                result,
+                'focus acquired',
+                { autoCollapse: true, travel: true, reveal: true }
+            );
+            markAnalysisWorkflowStep('scan', run.workflowRevision);
+            if (window.showParamToast) {
+                window.showParamToast(
+                    'Scan',
+                    `focus scale ${run.focusPresentationScale.toPrecision(3)} / lens ${run.focusScaleLens.toFixed(3)}`
+                );
+            }
+            return;
+        }
+        run.frame = requestAnimationFrame(tick);
+    };
+    run.frame = requestAnimationFrame(tick);
+}
+window.analyzeCoherentPaths = analyzeCoherentPaths;
+
+function renderSignalSpectrumResult(result, options = {}) {
+    const spectrum = result.spectrum;
+    if (!spectrum) return;
+    const percent = value => `${Math.round(
+        THREE.MathUtils.clamp(value, 0, 1) * 100
+    )}%`;
+    const coherenceValue = Math.abs(result.coherence) < 0.01
+        ? result.coherence.toPrecision(3)
+        : result.coherence.toFixed(2);
+    const explorationPoints = Math.max(0, Number(result.explorationPoints) || 0);
+    const rollBonusPoints = Math.max(0, Number(result.rollBonusPoints) || 0);
+    const curationPoints = Math.max(0, Number(result.curationPoints) || 0);
+    const captureAttempts = Math.max(1, Number(result.captureAttempts) || 1);
+    const validCaptureAttempts = Math.max(
+        1,
+        Math.min(captureAttempts, Number(result.validCaptureAttempts) || 1)
+    );
+    const captureConfidence = validCaptureAttempts / captureAttempts;
+    const totalDiscoveryPoints = Math.max(
+        0,
+        Number(result.totalDiscoveryPoints)
+        || (Number(result.discoveryScore) || 0)
+            + explorationPoints
+            + rollBonusPoints
+            + curationPoints
+    );
+    window._analysisNextReadoutOptions = options;
+    setAnalysisReadout(
+        `<div class="analysis-title">${captureConfidence < 0.67 ? 'tentative signal fingerprint' : 'signal fingerprint'}</div>`
+        + `<div class="analysis-line"><span>form</span><b>${spectrum.signalClass}</b></div>`
+        + `<div class="analysis-line"><span>dominant mode</span><b>k ${spectrum.dominantMode}</b></div>`
+        + `<div class="analysis-line"><span>wavelength</span><b>${spectrum.dominantWavelengthSsu.toPrecision(3)} SSU</b></div>`
+        + `<div class="analysis-line"><span>spectral center</span><b>${spectrum.spectralCentroid.toFixed(2)}</b></div>`
+        + `<div class="analysis-line"><span>concentration</span><b>${percent(spectrum.spectralConcentration)}</b></div>`
+        + `<div class="analysis-line"><span>flatness</span><b>${percent(spectrum.spectralFlatness)}</b></div>`
+        + `<div class="analysis-line"><span>authority</span><b>${percent(result.coherenceScore)}</b></div>`
+        + `<div class="analysis-line"><span>metric ensemble</span><b>${validCaptureAttempts}/${captureAttempts} passes</b></div>`
+        + `<div class="analysis-line"><span>scale unit</span><b>${result.ssu.toPrecision(3)} wu / SSU</b></div>`
+        + `<div class="analysis-line"><span>coherence</span><b>${coherenceValue} · ${percent(result.coherenceActivity)} active</b></div>`
+        + `<div class="analysis-line"><span>signal score</span><b>${result.discoveryScore} pts</b></div>`
+        + `<div class="analysis-line"><span>exploration</span><b>+${explorationPoints} pts</b></div>`
+        + (rollBonusPoints > 0
+            ? `<div class="analysis-line"><span>dice provenance</span><b>+${rollBonusPoints} pts</b></div>`
+            : '')
+        + (curationPoints > 0
+            ? `<div class="analysis-line"><span>curation</span><b>+${curationPoints} pts</b></div>`
+            : '')
+        + `<div class="analysis-line analysis-score"><span>discovery</span><b>${totalDiscoveryPoints} pts</b></div>`
+        + `<div class="analysis-teach">A 32-bin spatial DFT of authority-weighted flow and occupancy along the coherent corridor—not an audio FFT. Signal score rewards authority, active coherence, SSU span, and a readable band; exploration awards +10 credits per completed stage. Dice-born fields earn 10% more signal credit. Complete adds 10–100 curation credits for human framing.</div>`
+    );
+}
+
+async function analyzeSignalSpectrum() {
+    if (!window.S || !window.engine) return;
+    if (window._coherenceAnalysis || window._presentationScan || window.transition) {
+        if (window.showParamToast) {
+            window.showParamToast('Analyze', 'finish the current observation or scan first');
+        }
+        return;
+    }
+    const revision = window._analysisWorkflowRevision || 0;
+    const requestId = (window._signalAnalysisRequestId || 0) + 1;
+    window._signalAnalysisRequestId = requestId;
+    const button = document.getElementById('signalAnalyzeButton');
+    button?.classList.add('analyzing');
+    setAnalysisReadout(
+        '<div class="analysis-title">resolving spectrum</div>'
+        + '<div class="analysis-line"><span>spatial bins</span><b>32</b></div>'
+        + '<div class="analysis-teach">Comparing three frozen sparse samples of the coherent corridor without advancing particle physics.</div>'
+    );
+    if (window.showParamToast) {
+        window.showParamToast('Analyze', '32-bin spatial signal pass');
+    }
+
+    const cam = window.engine.cam;
+    const view = {
+        startColorMode: Number(window.S.colorMode) || 0,
+        startDist: Math.max(2, Number(cam.dist) || 52),
+        startQuat: cam.quat.clone(),
+        startCamPos: cam.pos.clone()
+    };
+    const cachedResult = (
+        window._latestCoherenceResult?.spectrum
+        && window._latestCoherenceResultRevision === revision
+    )
+        ? window._latestCoherenceResult
+        : null;
+    let result = cachedResult;
+    try {
+        if (!result) result = await window.engine.captureCoherenceAnalysis(3);
+    } finally {
+        window.engine._analysisActive = false;
+        button?.classList.remove('analyzing');
+    }
+    if (
+        requestId !== window._signalAnalysisRequestId
+        || revision !== (window._analysisWorkflowRevision || 0)
+    ) return;
+    if (!result || result.empty || !result.spectrum) {
+        const diagnostic = result?.empty
+            ? `${result.candidateCount}/${result.activePilots} coherent sensors · best of ${result.captureAttempts || 1}`
+            : 'metric readback unavailable';
+        window._analysisNextReadoutOptions = {
+            autoCollapse: true,
+            reveal: true
+        };
+        setAnalysisReadout(
+            '<div class="analysis-title">signal unresolved</div>'
+            + `<div class="analysis-line"><span>metric pass</span><b>${diagnostic}</b></div>`
+            + '<div class="analysis-teach">Three frozen sparse samples did not supply enough coherent corridor data for a spatial spectrum. This is an unresolved measurement, not proof that the field contains no signal.</div>'
+        );
+        markAnalysisWorkflowStep('analyze', revision);
+        return;
+    }
+
+    window._latestCoherenceResult = result;
+    window._latestCoherenceResultRevision = revision;
+    window._analysisResultWaypoint = buildAnalysisResultWaypoint(view, result);
+    const firstAnalyzeCompletion = markAnalysisWorkflowStep('analyze', revision);
+    result.explorationPoints = window._analysisWorkflowPoints || 0;
+    result.rollBonusPoints = window._analysisWorkflowOrigin === 'dice'
+        ? Math.round(result.discoveryScore * DICE_DISCOVERY_BONUS)
+        : 0;
+    result.totalDiscoveryPoints =
+        result.discoveryScore
+        + result.explorationPoints
+        + result.rollBonusPoints;
+    if (firstAnalyzeCompletion) {
+        // The four +10 exploration awards are paid at each completed stage.
+        // Analyze deposits only the newly resolved signal value here, plus
+        // the 10% provenance bonus for a specimen descended from Roll Dice.
+        awardSessionCredits(result.discoveryScore + result.rollBonusPoints);
+    }
+    renderSignalSpectrumResult(
+        result,
+        { autoCollapse: true, travel: true, reveal: true }
+    );
+    if (window.showParamToast) {
+        window.showParamToast(
+            'Analyze',
+            `${result.spectrum.signalClass} / ${result.totalDiscoveryPoints} pts`
+        );
+    }
+}
+window.analyzeSignalSpectrum = analyzeSignalSpectrum;
+
+function initRollDiceButton() {
+    const button = document.getElementById('rollDiceButton');
+    if (!button || button.dataset.ready === '1') return;
+    button.dataset.ready = '1';
+    syncSessionCreditsUI(false);
+    button.addEventListener('pointerdown', event => event.stopPropagation());
+    button.addEventListener('click', rollExpressiveDice);
+}
+
+function initEnhanceButton() {
+    const button = document.getElementById('enhanceButton');
+    if (!button || button.dataset.ready === '1') return;
+    button.dataset.ready = '1';
+    button.addEventListener('pointerdown', event => event.stopPropagation());
+    button.addEventListener('click', enhanceCurrentField);
+}
+
+function initScanButton() {
+    const button = document.getElementById('scanButton');
+    if (!button || button.dataset.ready === '1') return;
+    button.dataset.ready = '1';
+    button.addEventListener('pointerdown', event => event.stopPropagation());
+    button.addEventListener('click', scanPresentationScale);
+}
+
+function initAnalyzeButton() {
+    const button = document.getElementById('analyzeButton');
+    if (!button || button.dataset.ready === '1') return;
+    button.dataset.ready = '1';
+    button.addEventListener('pointerdown', event => event.stopPropagation());
+    button.addEventListener('click', analyzeCoherentPaths);
+}
+
+function initSignalAnalyzeButton() {
+    const button = document.getElementById('signalAnalyzeButton');
+    if (!button || button.dataset.ready === '1') return;
+    button.dataset.ready = '1';
+    button.addEventListener('pointerdown', event => event.stopPropagation());
+    button.addEventListener('click', analyzeSignalSpectrum);
+}
+
+function initCompleteStudyButton() {
+    const button = document.getElementById('completeStudyButton');
+    const panel = document.getElementById('studySubmitPanel');
+    const cancel = document.getElementById('cancelStudyButton');
+    if (!button || !panel || button.dataset.ready === '1') return;
+    button.dataset.ready = '1';
+    button.addEventListener('pointerdown', event => event.stopPropagation());
+    button.addEventListener('click', openStudySubmitPanel);
+    panel.addEventListener('pointerdown', event => event.stopPropagation());
+    panel.addEventListener('submit', event => {
+        event.preventDefault();
+        const note = document.getElementById('studyNote');
+        completeStudyFinding(note?.value || '');
+    });
+    cancel?.addEventListener('click', () => closeStudySubmitPanel(false));
+    updateStudyArchiveCount();
+    syncCompleteStudyButton();
+}
 
 function makeToggle(p, label, key, color, cb) {
     const d = document.createElement('span');
@@ -6490,6 +10193,92 @@ function makeSection(p, labelKey, sub) {
     return d;
 }
 
+function makeAutomataMetric(p, label, subhead, key) {
+    const row = document.createElement('div');
+    row.className = 'row admin-control automata-metric';
+    row.dataset.metricKey = key;
+
+    const labelWrap = document.createElement('div');
+    labelWrap.className = 'label';
+    const title = document.createElement('span');
+    title.textContent = label;
+    const sub = document.createElement('span');
+    sub.className = 'subhead';
+    sub.textContent = subhead;
+    labelWrap.append(title, sub);
+
+    const value = document.createElement('span');
+    value.className = 'val';
+    value.dataset.metricValue = key;
+    value.textContent = '—';
+
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    const fill = document.createElement('i');
+    fill.dataset.metricFill = key;
+    fill.style.setProperty('--v', '0%');
+    bar.appendChild(fill);
+
+    row.append(labelWrap, value, bar);
+    p.appendChild(row);
+    return row;
+}
+
+function formatScaleMeasure(value) {
+    if (!Number.isFinite(value)) return '—';
+    if (value >= 100) return value.toFixed(1);
+    if (value >= 10) return value.toFixed(2);
+    if (value >= 1) return value.toFixed(3);
+    if (value >= 0.01) return value.toFixed(4);
+    return value.toExponential(2);
+}
+
+// Two live reference measures for the Automata panel. SSU is the exact
+// regularized coherence radius used by pair math. Coherence Stride uses a
+// unit-speed particle and the central frequency family: Scale Space units
+// crossed during one base phase turn. Tempo appears in both numerator and
+// clock frequency, so it cancels while running; at zero, the measure pauses.
+function updateAutomataMetrics() {
+    const S = window.S;
+    if (!S) return;
+    const Eff = window.S_effective || {};
+    const read = key => Eff[key] !== undefined ? Number(Eff[key]) : Number(S[key]);
+    const coherence = Number.isFinite(read('coherence')) ? read('coherence') : 0;
+    const zeroWidthRaw = read('zeroWidth');
+    const zeroWidth = Math.max(Number.isFinite(zeroWidthRaw) ? zeroWidthRaw : 0.001, 0.001);
+    const ssu = Math.sqrt(coherence * coherence + zeroWidth * zeroWidth);
+    const tempoRaw = read('tempo');
+    const tempo = Number.isFinite(tempoRaw) ? Math.abs(tempoRaw) : 0;
+    const referenceFrequency = 0.125 * tempo;
+    const scaleVelocity = tempo / Math.max(ssu, 0.001);
+    const stride = referenceFrequency > 1e-9 ? scaleVelocity / referenceFrequency : 0;
+    const signature = `${ssu.toPrecision(8)}|${stride.toPrecision(8)}|${tempo > 1e-9 ? 1 : 0}`;
+    if (window._automataMetricSignature === signature) return;
+    window._automataMetricSignature = signature;
+
+    const ssuValue = document.querySelector('[data-metric-value="ssu"]');
+    const strideValue = document.querySelector('[data-metric-value="coherenceStride"]');
+    const ssuFill = document.querySelector('[data-metric-fill="ssu"]');
+    const strideFill = document.querySelector('[data-metric-fill="coherenceStride"]');
+    if (ssuValue) ssuValue.textContent = `${formatScaleMeasure(ssu)} wu`;
+    if (strideValue) {
+        strideValue.textContent = tempo > 1e-9
+            ? `${formatScaleMeasure(stride)} SSU/turn`
+            : 'paused';
+    }
+    if (ssuFill) {
+        const pct = Math.max(0, Math.min(100, Math.sqrt(ssu / 200) * 100));
+        ssuFill.style.setProperty('--v', `${pct}%`);
+    }
+    if (strideFill) {
+        const pct = tempo > 1e-9
+            ? Math.max(0, Math.min(100, Math.log10(1 + stride) / 3 * 100))
+            : 0;
+        strideFill.style.setProperty('--v', `${pct}%`);
+    }
+}
+window.updateAutomataMetrics = updateAutomataMetrics;
+
 export function buildUI(engine) {
     const pb = document.getElementById('paramsBody');
     if (!pb) return;
@@ -6551,44 +10340,17 @@ export function buildUI(engine) {
         if (window.engine) window.engine.resizeParticles(Math.round(val));
     });
     makeSlider(pb, c.halfLife?.label || 'Half-Life', c.halfLife?.sub ||'particle lifespan', c.halfLife?.ll ||'mortal', c.halfLife?.lr ||'immortal', 'halfLife', 0, 30, .1);
-    makeSlider(pb, c.coherence?.label || 'Coherence', c.coherence?.sub ||'signed radius · fraction focus', c.coherence?.ll ||'anti-coherent', c.coherence?.lr ||'coherent', 'coherence', -200, 200, .01);
+    makeSlider(pb, c.coherence?.label || 'Coherence', c.coherence?.sub ||'coarse magnitude · sign follows zero', c.coherence?.ll ||'zero', c.coherence?.lr ||'200', 'coherence', -200, 200, .01);
     makeSlider(pb, c.equilibrium?.label || 'Equilibrium', c.equilibrium?.sub ||'noise speed', c.equilibrium?.ll ||'tranquil', c.equilibrium?.lr ||'random', 'equilibrium', .001, .2, .001);
     makeSlider(pb, c.temperature?.label || 'Temperature', c.temperature?.sub ||'noise intensity', c.temperature?.ll ||'glacial', c.temperature?.lr ||'firey', 'temperature', 0, 3, .01);
     makeSlider(pb, c.viscosity?.label || 'Viscosity', c.viscosity?.sub ||'sluggishness', c.viscosity?.ll ||'fluid', c.viscosity?.lr ||'thick', 'viscosity', 0, 1, .01);
-    makeSlider(pb, c.responseMemory?.label || 'Response Memory', c.responseMemory?.sub ||'retained force history', c.responseMemory?.ll ||'instant', c.responseMemory?.lr ||'persistent', 'responseMemory', 0, .9999, .0001);
-    makeSlider(pb, c.speciesCompetition?.label || 'Competition', c.speciesCompetition?.sub ||'cyclic chase and flee', c.speciesCompetition?.ll ||'neutral', c.speciesCompetition?.lr ||'cyclic', 'speciesCompetition', 0, 1, .001);
-    makeSlider(pb, c.speciesFamilies?.label || 'Species Families', c.speciesFamilies?.sub ||'cyclic influence groups', c.speciesFamilies?.ll ||'three', c.speciesFamilies?.lr ||'five', 'speciesFamilies', 3, 5, 2);
-    makeSlider(pb, c.phaseLens?.label || 'Phase Lens', c.phaseLens?.sub ||'tempo-driven curl focus', c.phaseLens?.ll ||'lag', c.phaseLens?.lr ||'lead', 'phaseLens', -1, 1, .001);
-    makeSlider(pb, c.frequencyFamilies?.label || 'Frequency Families', c.frequencyFamilies?.sub ||'stable particle clocks', c.frequencyFamilies?.ll ||'unison', c.frequencyFamilies?.lr ||'five', 'frequencyFamilies', 1, 5, 2);
-    makeSlider(pb, c.frequencySpread?.label || 'Frequency Spread', c.frequencySpread?.sub ||'family separation in octaves', c.frequencySpread?.ll ||'unison', c.frequencySpread?.lr ||'four octaves', 'frequencySpread', 0, 4, .001);
-    makeSlider(pb, c.phaseCoupling?.label || 'Phase Coupling', c.phaseCoupling?.sub ||'local oscillator agreement', c.phaseCoupling?.ll ||'anti-lock', c.phaseCoupling?.lr ||'phase-lock', 'phaseCoupling', -1, 1, .001);
-    makeSlider(pb, c.phaseForce?.label || 'Phase Force', c.phaseForce?.sub ||'phase control of pair response', c.phaseForce?.ll ||'spatial', c.phaseForce?.lr ||'resonant', 'phaseForce', 0, 1, .001);
-    makeSlider(pb, c.spinor?.label || 'Spinor', c.spinor?.sub ||'two-sheeted 4π phase', c.spinor?.ll ||'vector', c.spinor?.lr ||'double cover', 'spinor', 0, 1, .001);
-    makeSlider(pb, c.mobiusTwist?.label || 'Möbius Twist', c.mobiusTwist?.sub ||'non-orientable curl transport', c.mobiusTwist?.ll ||'oriented', c.mobiusTwist?.lr ||'inside-out', 'mobiusTwist', 0, 1, .001);
-    makeSlider(pb, c.momentumCoupling?.label || 'Momentum Coupling', c.momentumCoupling?.sub ||'local velocity entrainment', c.momentumCoupling?.ll ||'individual', c.momentumCoupling?.lr ||'collective', 'momentumCoupling', 0, .25, .005);
-    makeSlider(pb, c.spatialInversion?.label || 'Inversion', c.spatialInversion?.sub ||'fraction-space blend', c.spatialInversion?.ll ||'distance', c.spatialInversion?.lr ||'reciprocal', 'spatialInversion', 0, 1, .01);
-    makeSlider(pb, c.zeroWidth?.label || 'Zero Width', c.zeroWidth?.sub ||'finite passage through zero', c.zeroWidth?.ll ||'sharp', c.zeroWidth?.lr ||'wide', 'zeroWidth', .01, 1, .01);
 
-    makeSection(pb, 'Field', 'domain, attraction, and containment');
+    makeSection(pb, 'Field', 'domain and attraction');
     makeSlider(pb, c.inversion?.label || 'Compression', c.inversion?.sub ||'domain extent', c.inversion?.ll ||'contract', c.inversion?.lr ||'expand', 'inversion', 30, 500, 1);
     makeSlider(pb, c.scaleDepth?.label || 'Scale Depth', c.scaleDepth?.sub ||'attraction force', c.scaleDepth?.ll ||'micro', c.scaleDepth?.lr ||'macro', 'scaleDepth', 0, 5, .01);
-    makeSlider(pb, c.exclusion?.label || 'Exclusion', c.exclusion?.sub ||'softened Coulomb separation', c.exclusion?.ll ||'packing', c.exclusion?.lr ||'spacing', 'exclusion', 0, 1, .001);
-    makeSlider(pb, c.homePull?.label || 'Home Pull', c.homePull?.sub ||'radial return strength', c.homePull?.ll ||'free', c.homePull?.lr ||'contained', 'homePull', 0, 1, .01);
-    makeSlider(pb, c.worldBoundary?.label || 'World Boundary', c.worldBoundary?.sub ||'distance before rebirth', c.worldBoundary?.ll ||'off', c.worldBoundary?.lr ||'far', 'worldBoundary', 0, 1000, 1);
 
-    makeSection(pb, 'Mass', 'inertia and particle families');
+    makeSection(pb, 'Mass', 'particle inertia');
     makeSlider(pb, c.mass?.label || 'Mass', c.mass?.sub ||'inertia', c.mass?.ll ||'light', c.mass?.lr ||'heavy', 'mass', 0.1, 5, .05);
-    makeSlider(pb, c.massFamilies?.label || 'Mass Families', c.massFamilies?.sub ||'discrete inertia bands', c.massFamilies?.ll ||'uniform', c.massFamilies?.lr ||'five', 'massFamilies', 1, 5, 2);
-    makeSlider(pb, c.massRange?.label || 'Mass Range', c.massRange?.sub ||'family spread in octaves', c.massRange?.ll ||'same', c.massRange?.lr ||'wide', 'massRange', 0, 2, .01);
-
-    const adminSection = makeSection(pb, 'Simulation Admin', 'evaluation and performance');
-    adminSection.classList.add('admin-control');
-    [
-        makeSlider(pb, c.neighborFilter?.label || 'Neighbor Filter', c.neighborFilter?.sub ||'coherence cell culling', c.neighborFilter?.ll ||'off', c.neighborFilter?.lr ||'on', 'neighborFilter', 0, 1, 1),
-        makeSlider(pb, c.unifiedDispatch?.label || 'Unified Dispatch', c.unifiedDispatch?.sub ||'single compute submission', c.unifiedDispatch?.ll ||'separate', c.unifiedDispatch?.lr ||'unified', 'unifiedDispatch', 0, 1, 1),
-        makeSlider(pb, c.pairPathGate?.label || 'Pair Path Gate', c.pairPathGate?.sub ||'skip inactive interaction math', c.pairPathGate?.ll ||'original', c.pairPathGate?.lr ||'gated', 'pairPathGate', 0, 1, 1),
-        makeSlider(pb, c.neighborBudget?.label || 'Neighbor Budget', c.neighborBudget?.sub ||'candidate slots per particle', c.neighborBudget?.ll ||'all', c.neighborBudget?.lr ||'bounded', 'neighborBudget', 0, 256, 16)
-    ].forEach(row => row.classList.add('admin-control'));
 
     const rd = document.createElement('div');
     // Generous vertical breathing room — these are footer actions on a
@@ -6632,22 +10394,100 @@ export function buildUI(engine) {
     // Reveals the true attractor without stigmergic momentum.
     makeBtn(rd, 'Re-initialize', '#5fa8c8', () => {
         if (window.engine && typeof window.engine.reinitializeParticles === 'function') {
+            resetAnalysisWorkflow(window._analysisWorkflowOrigin || 'manual');
             window.engine.reinitializeParticles();
         }
     });
     // Apply equal-share + no-margin to both buttons just created
     Array.from(rd.children).forEach(styleBottomBtn);
 
+    // ─── Experimental ─────────────────────────────────────────────────────
+    // Phoenix additions live in their own ablatable vocabulary. Keeping these
+    // panels separate leaves the original Scale Space Params panel legible and
+    // makes the extension boundary obvious to collaborators.
+    const eb = document.getElementById('experimentalBody');
+    if (eb) {
+        eb.innerHTML = '';
+
+        makeSection(eb, 'Space', 'reciprocal distance and containment');
+        makeSlider(eb, c.spatialInversion?.label || 'Inversion', c.spatialInversion?.sub ||'fraction-space blend', c.spatialInversion?.ll ||'distance', c.spatialInversion?.lr ||'reciprocal', 'spatialInversion', 0, 1, .01);
+        makeSlider(eb, c.zeroWidth?.label || 'Zero Width', c.zeroWidth?.sub ||'finite passage through zero', c.zeroWidth?.ll ||'sharp', c.zeroWidth?.lr ||'wide', 'zeroWidth', .001, 1, .001);
+        makeSlider(eb, c.exclusion?.label || 'Exclusion', c.exclusion?.sub ||'softened Coulomb separation', c.exclusion?.ll ||'packing', c.exclusion?.lr ||'spacing', 'exclusion', 0, 1, .001);
+        makeSlider(eb, c.homePull?.label || 'Home Pull', c.homePull?.sub ||'inward trajectory bend', c.homePull?.ll ||'free', c.homePull?.lr ||'contained', 'homePull', 0, 1, .01);
+
+        makeSection(eb, 'Memory', 'retained and shared motion');
+        makeSlider(eb, c.responseMemory?.label || 'Response Memory', c.responseMemory?.sub ||'retained force history', c.responseMemory?.ll ||'instant', c.responseMemory?.lr ||'persistent', 'responseMemory', 0, .9999, .0001);
+        makeSlider(eb, c.momentumCoupling?.label || 'Momentum Coupling', c.momentumCoupling?.sub ||'local velocity entrainment', c.momentumCoupling?.ll ||'individual', c.momentumCoupling?.lr ||'collective', 'momentumCoupling', 0, .25, .005);
+
+        makeSection(eb, 'Phase', 'space ↔ signal feedback');
+        makeSlider(eb, c.phaseLens?.label || 'Phase Lens', c.phaseLens?.sub ||'pair waveform origin', c.phaseLens?.ll ||'lag', c.phaseLens?.lr ||'lead', 'phaseLens', -1, 1, .001);
+        makeSlider(eb, c.phaseCoupling?.label || 'Phase Coupling', c.phaseCoupling?.sub ||'strain-weighted phase lock', c.phaseCoupling?.ll ||'anti-lock', c.phaseCoupling?.lr ||'phase-lock', 'phaseCoupling', -1, 1, .001);
+        makeSlider(eb, c.phaseForce?.label || 'Phase Force', c.phaseForce?.sub ||'phase-shifted equilibrium shell', c.phaseForce?.ll ||'spatial', c.phaseForce?.lr ||'resonant', 'phaseForce', 0, 1, .001);
+        makeSlider(eb, c.frequencyFamilies?.label || 'Frequency Families', c.frequencyFamilies?.sub ||'stable particle clocks', c.frequencyFamilies?.ll ||'unison', c.frequencyFamilies?.lr ||'five', 'frequencyFamilies', 1, 5, 2);
+        makeSlider(eb, c.frequencySpread?.label || 'Frequency Spread', c.frequencySpread?.sub ||'family separation in octaves', c.frequencySpread?.ll ||'unison', c.frequencySpread?.lr ||'four octaves', 'frequencySpread', 0, 4, .001);
+        makeSlider(eb, c.spinor?.label || 'Spinor', c.spinor?.sub ||'two-sheeted 4π phase', c.spinor?.ll ||'vector', c.spinor?.lr ||'double cover', 'spinor', 0, 1, .001);
+        makeSlider(eb, c.mobiusTwist?.label || 'Möbius Twist', c.mobiusTwist?.sub ||'non-orientable curl transport', c.mobiusTwist?.ll ||'oriented', c.mobiusTwist?.lr ||'inside-out', 'mobiusTwist', 0, 1, .001);
+
+        makeSection(eb, 'Mass Families', 'discrete inertia variation');
+        makeSlider(eb, c.massFamilies?.label || 'Mass Families', c.massFamilies?.sub ||'discrete inertia bands', c.massFamilies?.ll ||'uniform', c.massFamilies?.lr ||'five', 'massFamilies', 1, 5, 2);
+        makeSlider(eb, c.massRange?.label || 'Mass Range', c.massRange?.sub ||'family spread in octaves', c.massRange?.ll ||'same', c.massRange?.lr ||'wide', 'massRange', 0, 2, .01);
+
+        const adminSection = makeSection(eb, 'Simulation Admin', 'evaluation and performance');
+        adminSection.classList.add('admin-control');
+        [
+            makeSlider(eb, c.worldBoundary?.label || 'World Boundary', c.worldBoundary?.sub ||'distance before rebirth', c.worldBoundary?.ll ||'off', c.worldBoundary?.lr ||'far', 'worldBoundary', 0, 1000, 1),
+            makeSlider(eb, c.neighborFilter?.label || 'Neighbor Filter', c.neighborFilter?.sub ||'coherence cell culling', c.neighborFilter?.ll ||'off', c.neighborFilter?.lr ||'on', 'neighborFilter', 0, 1, 1),
+            makeSlider(eb, c.unifiedDispatch?.label || 'Unified Dispatch', c.unifiedDispatch?.sub ||'single compute submission', c.unifiedDispatch?.ll ||'separate', c.unifiedDispatch?.lr ||'unified', 'unifiedDispatch', 0, 1, 1),
+            makeSlider(eb, c.pairPathGate?.label || 'Pair Path Gate', c.pairPathGate?.sub ||'skip inactive interaction math', c.pairPathGate?.ll ||'original', c.pairPathGate?.lr ||'gated', 'pairPathGate', 0, 1, 1),
+            makeSlider(eb, c.neighborBudget?.label || 'Neighbor Budget', c.neighborBudget?.sub ||'candidate slots per particle', c.neighborBudget?.ll ||'all', c.neighborBudget?.lr ||'bounded', 'neighborBudget', 0, 256, 16)
+        ].forEach(row => row.classList.add('admin-control'));
+    }
+
+    // ─── Automata ─────────────────────────────────────────────────────────
+    // Population identity and cyclic competition form a distinct rule system
+    // from the phase oscillator controls, so they get their own small panel.
+    const ab = document.getElementById('automataBody');
+    if (ab) {
+        ab.innerHTML = '';
+        makeSection(ab, 'Species', 'cyclic influence families');
+        makeSlider(ab, c.speciesCompetition?.label || 'Competition', c.speciesCompetition?.sub ||'cyclic chase and flee', c.speciesCompetition?.ll ||'neutral', c.speciesCompetition?.lr ||'cyclic', 'speciesCompetition', 0, 1, .001);
+        makeSlider(ab, c.schooling?.label || 'Schooling', c.schooling?.sub ||'kin phase and motion alignment', c.schooling?.ll ||'individual', c.schooling?.lr ||'swarm', 'schooling', 0, 1, .001);
+        makeSlider(ab, c.speciesAgency?.label || 'Agency', c.speciesAgency?.sub ||'sparse scouts follow prey signal', c.speciesAgency?.ll ||'environment', c.speciesAgency?.lr ||'pursuit', 'speciesAgency', 0, 1, .001);
+        makeSlider(ab, c.pilot?.label || 'Pilot', c.pilot?.sub ||'1:1024 metric signal routers', c.pilot?.ll ||'cells', c.pilot?.lr ||'guided tissue', 'pilot', 0, 1, .001);
+        makeSlider(ab, c.predation?.label || 'Predation', c.predation?.sub ||'contact transfers signal integrity', c.predation?.ll ||'kinetic', c.predation?.lr ||'ecology', 'predation', 0, 1, .001);
+        makeSlider(ab, c.speciesFamilies?.label || 'Species Families', c.speciesFamilies?.sub ||'cyclic influence groups', c.speciesFamilies?.ll ||'three', c.speciesFamilies?.lr ||'five', 'speciesFamilies', 3, 5, 2);
+        const measureSection = makeSection(ab, 'Measures', 'reference scale and signal traversal');
+        measureSection.classList.add('admin-control');
+        makeAutomataMetric(ab, 'Scale-Space Unit', '1 SSU · coherence radius', 'ssu');
+        makeAutomataMetric(ab, 'Coherence Stride', 'unit speed · central phase family', 'coherenceStride');
+        window._automataMetricSignature = '';
+        updateAutomataMetrics();
+    }
+
     // ─── Optics ───────────────────────────────────────────────────────────
     // Three compact groups: particle form, connections, and color.
     // Backdrop sliders live in Config → UI (they affect the UI layer, not
     // the simulation). Dependent controls (Trail Length) live-update via
     // _toggleUpdaters; no buildUI rebuilds on toggle.
+    // Geometry keeps structural projection choices separate from particle
+    // appearance. Both launch laws are cheap and use the same rebirth hook.
+    const gb = document.getElementById('geometryBody');
+    if (gb) {
+        gb.innerHTML = '';
+        makeSection(gb, 'Projection Nozzle', 'rebirth launch geometry');
+        makeGroupToggles(gb, [
+            { label: 'Two-Line', key: 'projectionNozzle', matchVal: 0 },
+            { label: 'Sphere', key: 'projectionNozzle', matchVal: 1 }
+        ]);
+    }
+
     const sb = document.getElementById('settingsBody'); sb.innerHTML = '';
 
     makeSection(sb, 'Form', 'resolution, spacing, and quanta');
     makeSlider(sb, c.resolution?.label || 'Resolution', c.resolution?.sub ||'particle size', c.resolution?.ll ||'-rez', c.resolution?.lr ||'+rez', 'resolution', .1, 200, .1);
-    makeSlider(sb, c.presentationScale?.label || 'Presentation Scale', c.presentationScale?.sub ||'render-only spacing', c.presentationScale?.ll ||'compact', c.presentationScale?.lr ||'expanded', 'presentationScale', .1, 100, .01);
+    makeSlider(sb, c.presentationScale?.label || 'Presentation Scale', c.presentationScale?.sub ||'render-only spacing', c.presentationScale?.ll ||'compact', c.presentationScale?.lr ||'expanded', 'presentationScale', .001, 100, .001);
+    makeSlider(sb, c.scaleLens?.label || 'Scale Lens', c.scaleLens?.sub ||'open fractional SSU space', c.scaleLens?.ll ||'linear', c.scaleLens?.lr ||'deep scale', 'scaleLens', 0, 1, .001);
+    makeSlider(sb, c.cloudLod?.label || 'Cloud LOD', c.cloudLod?.sub ||'camera-local particle detail', c.cloudLod?.ll ||'all particles', c.cloudLod?.lr ||'local clouds', 'cloudLod', 0, 1, .001);
 
     const quantaT = T.quanta || { label: 'Quanta', items: ['Circle', 'Square', 'Diamond'] };
     makeGroupToggles(sb, [
@@ -6689,16 +10529,19 @@ export function buildUI(engine) {
     });
     updateTrailEnabled();
 
-    const cmm = T.colorMode || { label: 'Color Mode', items: ['Mono', 'Size', 'Velocity', 'Density'] };
+    const cmm = T.colorMode || { label: 'Color Mode', items: ['Mono', 'Size', 'Velocity', 'Density', 'Species', 'Log Scale'] };
     makeSection(sb, 'Color', 'opacity and spectral mapping');
     // System Opacity affects particles, trails, and lattice.
     makeSlider(sb, c.opacity?.label || 'System Opacity', c.opacity?.sub ||'', c.opacity?.ll ||'ghost', c.opacity?.lr ||'solid', 'opacity', 0, 1, .01);
-    makeGroupToggles(sb, [
+    const colorModeToggles = makeGroupToggles(sb, [
         { label: cmm.items[0], key: 'colorMode', matchVal: 0 },
         { label: cmm.items[1], key: 'colorMode', matchVal: 1 },
         { label: cmm.items[2], key: 'colorMode', matchVal: 2 },
-        { label: cmm.items[3], key: 'colorMode', matchVal: 3 }
+        { label: cmm.items[3], key: 'colorMode', matchVal: 3 },
+        { label: cmm.items[4], key: 'colorMode', matchVal: 4 },
+        { label: cmm.items[5], key: 'colorMode', matchVal: 5 }
     ]);
+    colorModeToggles.classList.add('color-mode-toggles');
 
     // ─── Color Controls ────────────────────────────────────────────────────
     makeSlider(sb, c.colorRange?.label || 'Color Spectrum Range', c.colorRange?.sub ||'', c.colorRange?.ll ||'tight', c.colorRange?.lr ||'wide', 'hue', 0.01, 1, 0.01, () => {
@@ -7020,6 +10863,25 @@ export function buildUI(engine) {
 
         // ─── SYSTEM PANE ───────────────────────────────────────────────────
         // ─── Save Screenshot ──────────────────────────────────────────────
+        // Shared duration for continuous state-space travel.
+        makeSection(systemPane, 'State Glide', 'dice and atlas travel');
+        makeSlider(
+            systemPane,
+            'Transition Time',
+            'seconds',
+            'instant',
+            'slow',
+            'stateTransitionSeconds',
+            0,
+            20,
+            0.1
+        );
+        makeSection(systemPane, 'Roll Camera', 'distance only');
+        makeGroupToggles(systemPane, [
+            { label: 'Keep View', key: 'autoFrameDice', matchVal: false },
+            { label: 'Fit Field', key: 'autoFrameDice', matchVal: true }
+        ]);
+
         // Four toggles: Waypoint/Thumb (save triggers) + BG/Scanlines
         // (what to include). BG/Scanlines auto-disable when neither
         // trigger is on, via .include-disabled.
@@ -7126,7 +10988,7 @@ export function updatePO() {
     const bgCanvas = document.getElementById('bgGlow');
     if (bgCanvas) bgCanvas.style.filter = 'blur(' + (window.S.bgBlur ?? 40) + 'px)';
     
-    ['panelParams', 'panelSettings', 'panelAtlas', 'panelControls', 'panelConfig', 'panelEntropy'].forEach(id => {
+    ['panelParams', 'panelExperimental', 'panelAutomata', 'panelGeometry', 'panelSettings', 'panelAtlas', 'panelControls', 'panelConfig', 'panelEntropy'].forEach(id => {
         const p = document.getElementById(id);
         if (!p) return;
         if (a < 0.01) {
@@ -7200,6 +11062,10 @@ window.S = {
     viscosity: 0.0,
     responseMemory: 0.0,
     speciesCompetition: 0.0,
+    schooling: 0.0,
+    speciesAgency: 0.0,
+    pilot: 0.0,
+    predation: 0.0,
     speciesFamilies: 3,
     phaseLens: 0.0,
     frequencyFamilies: 1,
@@ -7217,7 +11083,10 @@ window.S = {
     zeroWidth: 0.1,
     homePull: 1.0,
     worldBoundary: 0.0,
+    projectionNozzle: 1.0,
     presentationScale: 1.0,
+    scaleLens: 0.0,
+    cloudLod: 0.0,
     massFamilies: 1,
     massRange: 0.0,
     mass: 0.1,
@@ -7250,6 +11119,8 @@ window.S = {
     screenScanlines: 0.06,   // 0..0.5 opacity of CRT scanlines over the simulation canvas
     buttonShape: 'hex',      // 'hex' | 'circle'  (radial menu button shape)
     referenceGrid: 0,        // 0..0.25 opacity of background sky grid
+    stateTransitionSeconds: 5.0, // shared duration for dice and atlas state travel
+    autoFrameDice: true,     // fit actual field presence on expressive rerolls
     // Screenshot save triggers, split per gesture so users can opt into one
     // or both flows. Old saveScreenshots key is migrated at load time.
     // Defaulted ON because waypoint captures are how users build their
@@ -7394,7 +11265,7 @@ function validateWaypoint(w) {
     const visNumKeys = ['hue', 'sat', 'lightness', 'opacity', 'tempo', 'trailLen',
                         'bgGlow', 'bgBlur', 'offsetX', 'offsetY', 'offsetZ', 'billboardOffset'];
     visNumKeys.forEach(k => { if (_isFiniteNumber(inV[k])) out.optics[k] = inV[k]; });
-    if (_isFiniteIntInRange(inV.colorMode, 0, 3)) out.optics.colorMode = inV.colorMode;
+    if (_isFiniteIntInRange(inV.colorMode, 0, 5)) out.optics.colorMode = inV.colorMode;
     if (typeof inV.showParticles === 'boolean') out.optics.showParticles = inV.showParticles;
     if (typeof inV.showRibbons === 'boolean')   out.optics.showRibbons   = inV.showRibbons;
     if (typeof inV.tessRibbons === 'boolean')   out.optics.tessRibbons   = inV.tessRibbons;
@@ -7443,9 +11314,14 @@ const _STATE_ENUMS = {
 // cost, add it here.
 const _STATE_CLAMPS = {
     freeEnergy: [0, 1_000_000],
+    stateTransitionSeconds: [0, 20],
     phaseLens: [-1, 1],
     responseMemory: [0, 0.9999],
     speciesCompetition: [0, 1],
+    schooling: [0, 1],
+    speciesAgency: [0, 1],
+    pilot: [0, 1],
+    predation: [0, 1],
     speciesFamilies: [3, 5],
     frequencyFamilies: [1, 5],
     frequencySpread: [0, 4],
@@ -7463,7 +11339,10 @@ const _STATE_CLAMPS = {
     zeroWidth: [0.001, 1],
     homePull: [0, 1],
     worldBoundary: [0, 1000],
-    presentationScale: [0.01, 100],
+    projectionNozzle: [0, 1],
+    presentationScale: [0.001, 100],
+    scaleLens: [0, 1],
+    cloudLod: [0, 1],
     massFamilies: [1, 5],
     massRange: [0, 2]
 };
@@ -7482,7 +11361,7 @@ function hydrateState(raw) {
         // is 'number' so it'd otherwise flow through the generic number
         // branch and accept e.g. 2.7. Special-case integer-and-range.
         if (k === 'colorMode') {
-            if (_isFiniteIntInRange(Number(v), 0, 3)) window.S[k] = Number(v);
+            if (_isFiniteIntInRange(Number(v), 0, 5)) window.S[k] = Number(v);
             continue;
         }
         if (k === 'massFamilies') {
@@ -7610,10 +11489,10 @@ function buildExportPayload(opts) {
     const PRECISION = {
         opacity: 2, panelOpacity: 2, buttonOpacity: 2, volume: 2,
         sat: 2, lightness: 2, hue: 3,
-        equilibrium: 3, temperature: 2, viscosity: 2, responseMemory: 4, speciesCompetition: 3, speciesFamilies: 0, phaseLens: 3, frequencyFamilies: 0, frequencySpread: 3, phaseCoupling: 3, phaseForce: 3, spinor: 3, mobiusTwist: 3,
+        equilibrium: 3, temperature: 2, viscosity: 2, responseMemory: 4, speciesCompetition: 3, schooling: 3, speciesAgency: 3, pilot: 3, predation: 3, speciesFamilies: 0, phaseLens: 3, frequencyFamilies: 0, frequencySpread: 3, phaseCoupling: 3, phaseForce: 3, spinor: 3, mobiusTwist: 3,
         mass: 2, massFamilies: 0, massRange: 2,
         scaleDepth: 2, exclusion: 3, coherence: 3, homePull: 2,
-        worldBoundary: 0, presentationScale: 2, halfLife: 1,
+        worldBoundary: 0, projectionNozzle: 0, presentationScale: 3, scaleLens: 3, cloudLod: 3, halfLife: 1,
         bgGlow: 2, bgBlur: 1, tempo: 2, trailLen: 0,
         resolution: 2, inversion: 0, freeEnergy: 0,
         offsetX: 0, offsetY: 0, offsetZ: 0, billboardOffset: 0,
@@ -8436,10 +12315,10 @@ function _buildSharePayload(wp, opts) {
     // 0.30000000000000004 in the output.
     const PREC = {
         opacity: 2, hue: 3, sat: 2, lightness: 2,
-        equilibrium: 3, temperature: 2, viscosity: 2, responseMemory: 4, speciesCompetition: 3, speciesFamilies: 0, phaseLens: 3, frequencyFamilies: 0, frequencySpread: 3, phaseCoupling: 3, phaseForce: 3, spinor: 3, mobiusTwist: 3, mass: 2,
+        equilibrium: 3, temperature: 2, viscosity: 2, responseMemory: 4, speciesCompetition: 3, schooling: 3, speciesAgency: 3, pilot: 3, predation: 3, speciesFamilies: 0, phaseLens: 3, frequencyFamilies: 0, frequencySpread: 3, phaseCoupling: 3, phaseForce: 3, spinor: 3, mobiusTwist: 3, mass: 2,
         massFamilies: 0, massRange: 2,
         scaleDepth: 2, exclusion: 3, coherence: 3, homePull: 2,
-        worldBoundary: 0, presentationScale: 2, halfLife: 1, tempo: 2,
+        worldBoundary: 0, projectionNozzle: 0, presentationScale: 3, scaleLens: 3, cloudLod: 3, halfLife: 1, tempo: 2,
         trailLen: 0, bgGlow: 2, bgBlur: 1,
         resolution: 2, inversion: 0, freeEnergy: 0,
         offsetX: 0, offsetY: 0, offsetZ: 0, billboardOffset: 0

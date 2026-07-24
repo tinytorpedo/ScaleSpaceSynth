@@ -12,26 +12,62 @@
   <div id="ui-root">
     <div id="hud-title" class="hud-element">SCALE SPACE SYNTHESIST</div>
     <div id="hud" class="hud-element"><span id="hud-fps"></span> <span id="hud-info"></span></div>
+    <div id="sessionScore" role="status" aria-live="polite" title="Spend credits on Roll Dice; earn them by exploring and analyzing">
+      <span>Session</span>
+      <strong id="sessionCreditValue">100</strong>
+      <small>credits</small>
+    </div>
+    <button id="rollDiceButton" type="button" title="Spend 100 credits to randomize expressive controls; performance and admin settings stay fixed">Roll Dice · 100</button>
+    <button id="enhanceButton" type="button" title="Measure the settled field extents and fit its presentation">Extents</button>
+    <button id="scanButton" type="button" title="Observe the field while orbiting and sweeping its presentation scale">Observe</button>
+    <button id="analyzeButton" type="button" title="Scan for and focus the field's strongest coherent signal corridor">Scan</button>
+    <button id="signalAnalyzeButton" type="button" title="Analyze the focused corridor with a small spatial spectrum">Analyze</button>
+    <button id="completeStudyButton" type="button" title="Append this finding and award 10–100 points for human framing" disabled>Complete</button>
+    <form id="studySubmitPanel" hidden>
+      <label for="studyNote">Study note</label>
+      <textarea id="studyNote" maxlength="2000" placeholder="Optional: what made this discovery special, or what prevented it from displaying correctly?"></textarea>
+      <div class="study-submit-meta">
+        <span id="studyArchiveCount">0 findings saved</span>
+        <span id="studyCurationPoints">curation +10 pts</span>
+      </div>
+      <div class="study-submit-actions">
+        <button id="cancelStudyButton" type="button">Cancel</button>
+        <button id="submitStudyButton" type="submit">Append finding</button>
+      </div>
+    </form>
+    <div id="analysisReadout" role="status" aria-live="polite"></div>
     <div class="travel-indicator" id="travelInd">Traveling...</div>
     <div class="panel hidden" id="panelParams" style="left:16px;top:44px;width:265px">
-      <div class="panel-head"><span>Params</span><span class="toggle" onclick="togglePanel('panelParams')">&minus;</span></div>
+      <div class="panel-head"><span class="title">Params</span><span class="toggle" onclick="togglePanel('panelParams')">&minus;</span></div>
       <div class="panel-body" id="paramsBody" style="padding:10px 12px"></div>
     </div>
+    <div class="panel hidden" id="panelExperimental" style="left:296px;top:44px;width:285px">
+      <div class="panel-head"><span class="title">Experimental</span><span class="toggle" onclick="togglePanel('panelExperimental')">&minus;</span></div>
+      <div class="panel-body" id="experimentalBody"></div>
+    </div>
+    <div class="panel hidden" id="panelAutomata" style="left:596px;top:44px;width:265px">
+      <div class="panel-head"><span class="title">Automata</span><span class="toggle" onclick="togglePanel('panelAutomata')">&minus;</span></div>
+      <div class="panel-body" id="automataBody"></div>
+    </div>
+    <div class="panel hidden" id="panelGeometry" style="left:896px;top:44px;width:265px">
+      <div class="panel-head"><span class="title">Geometry</span><span class="toggle" onclick="togglePanel('panelGeometry')">&minus;</span></div>
+      <div class="panel-body" id="geometryBody"></div>
+    </div>
     <div class="panel hidden" id="panelSettings" style="right:16px;top:44px;width:265px">
-      <div class="panel-head"><span>Optics</span><span class="toggle" onclick="togglePanel('panelSettings')">&minus;</span></div>
+      <div class="panel-head"><span class="title">Optics</span><span class="toggle" onclick="togglePanel('panelSettings')">&minus;</span></div>
       <div class="panel-body" id="settingsBody"></div>
     </div>
     <div class="panel hidden" id="panelConfig" style="right:16px;top:460px;width:265px">
-      <div class="panel-head"><span>Config</span><span class="toggle" onclick="togglePanel('panelConfig')">&minus;</span></div>
+      <div class="panel-head"><span class="title">Config</span><span class="toggle" onclick="togglePanel('panelConfig')">&minus;</span></div>
       <div class="panel-body" id="configBody"></div>
     </div>
     <div class="panel hidden" id="panelAtlas" style="left:266px;top:44px;width:265px">
-      <div class="panel-head"><span>Atlas</span><span class="toggle" onclick="togglePanel('panelAtlas')">&minus;</span></div>
+      <div class="panel-head"><span class="title">Atlas</span><span class="toggle" onclick="togglePanel('panelAtlas')">&minus;</span></div>
       <div class="panel-body" id="atlasBody"></div>
       <div id="atlasFooter"></div>
     </div>
     <div class="panel hidden" id="panelControls" style="left:266px;top:560px;width:265px">
-      <div class="panel-head"><span>Controls</span><span class="toggle" onclick="togglePanel('panelControls')">&minus;</span></div>
+      <div class="panel-head"><span class="title">Controls</span><span class="toggle" onclick="togglePanel('panelControls')">&minus;</span></div>
       <div class="panel-body" id="controlsBody"></div>
     </div>
   </div>
